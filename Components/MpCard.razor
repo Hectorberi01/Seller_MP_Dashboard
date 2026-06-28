@@ -1,0 +1,31 @@
+@* Carte : fond blanc, bordure fine, rayon 12px, pas d'ombre portée (charte). *@
+
+<div class="mp-card @(NoPadding ? "mp-card-flush" : null)">
+    @if (!string.IsNullOrEmpty(Title) || HeaderContent is not null)
+    {
+        <div class="mp-card-header">
+            <div>
+                @if (!string.IsNullOrEmpty(Title))
+                {
+                    <h3 class="mp-card-title">@Title</h3>
+                }
+                @if (!string.IsNullOrEmpty(Subtitle))
+                {
+                    <p class="mp-card-subtitle">@Subtitle</p>
+                }
+            </div>
+            @HeaderContent
+        </div>
+    }
+    <div class="mp-card-body">
+        @ChildContent
+    </div>
+</div>
+
+@code {
+    [Parameter] public string? Title { get; set; }
+    [Parameter] public string? Subtitle { get; set; }
+    [Parameter] public bool NoPadding { get; set; }
+    [Parameter] public RenderFragment? HeaderContent { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

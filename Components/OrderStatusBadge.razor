@@ -1,0 +1,32 @@
+@* Mappe un statut de commande / paiement vers un badge (couleur + libellé). *@
+
+@if (ShowPayment)
+{
+    @PaymentBadge(Payment)
+}
+else
+{
+    @StatusBadge(Status)
+}
+
+@code {
+    [Parameter] public OrderStatus Status { get; set; }
+    [Parameter] public PaymentStatus Payment { get; set; }
+    [Parameter] public bool ShowPayment { get; set; }
+
+    private RenderFragment PaymentBadge(PaymentStatus p) => p switch
+    {
+        PaymentStatus.Paid    => @<MpBadge Variant="BadgeVariant.Stock">Payé</MpBadge>,
+        PaymentStatus.Pending => @<MpBadge Variant="BadgeVariant.Promo">Paiement en attente</MpBadge>,
+        _                     => @<MpBadge Variant="BadgeVariant.Neutral">Remboursé</MpBadge>
+    };
+
+    private RenderFragment StatusBadge(OrderStatus s) => s switch
+    {
+        OrderStatus.Pending    => @<MpBadge Variant="BadgeVariant.Promo">À traiter</MpBadge>,
+        OrderStatus.Processing => @<MpBadge Variant="BadgeVariant.Verified">En préparation</MpBadge>,
+        OrderStatus.Shipped    => @<MpBadge Variant="BadgeVariant.Verified">Expédiée</MpBadge>,
+        OrderStatus.Delivered  => @<MpBadge Variant="BadgeVariant.Stock">Livrée</MpBadge>,
+        _                      => @<MpBadge Variant="BadgeVariant.Rupture">Annulée</MpBadge>
+    };
+}

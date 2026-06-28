@@ -1,0 +1,53 @@
+@inherits LayoutComponentBase
+@inject AuthState Auth
+@inject NavigationManager Nav
+
+@if (Auth.IsAuthenticated)
+{
+    <div class="page">
+        <div class="sidebar">
+            <NavMenu/>
+        </div>
+
+        <main>
+            <div class="top-row">
+                <div class="top-title">Espace Vendeur</div>
+                <a class="top-seller" href="profil" title="Mon profil">
+                    <div class="seller-meta">
+                        <span class="seller-name">@SellerName</span>
+                    </div>
+                    <div class="seller-avatar" aria-hidden="true">@Initials</div>
+                </a>
+            </div>
+
+            <article class="content">
+                @Body
+            </article>
+        </main>
+    </div>
+}
+
+@code {
+    // Toute page sous ce layout exige une session valide : sinon, redirection
+    // vers /login. Le corps n'est pas rendu tant qu'on n'est pas authentifié,
+    // ce qui évite tout appel BFF anonyme (donc tout 401 inutile).
+    protected override void OnInitialized()
+    {
+        if (!Auth.IsAuthenticated)
+            Nav.NavigateTo("login");
+    }
+
+    private string SellerName => string.IsNullOrEmpty(Auth.SellerName) ? "Ma boutique" : Auth.SellerName!;
+
+    private string Initials
+    {
+        get
+        {
+            var parts = SellerName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length == 0) return "?";
+            var first = parts[0].Length > 0 ? parts[0][0].ToString() : "";
+            var second = parts.Length > 1 && parts[1].Length > 0 ? parts[1][0].ToString() : "";
+            return (first + second).ToUpperInvariant();
+        }
+    }
+}

@@ -1,0 +1,78 @@
+﻿<div class="top-row navbar">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="">
+            <span class="brand-mark">M</span>
+            <span class="brand-text">Marketplace</span>
+        </a>
+        <button title="Menu" class="navbar-toggler" @onclick="ToggleNavMenu">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+    </div>
+</div>
+
+<div class="@NavMenuCssClass nav-scrollable" @onclick="ToggleNavMenu">
+    <nav class="nav flex-column">
+        <div class="nav-section">Pilotage</div>
+        <div class="nav-item">
+            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+                <span class="nav-ico" aria-hidden="true"></span> Vue d'ensemble
+            </NavLink>
+        </div>
+        <div class="nav-item">
+            <NavLink class="nav-link" href="commandes">
+                <span class="nav-ico" aria-hidden="true"></span> Commandes
+            </NavLink>
+        </div>
+
+        <div class="nav-section">Catalogue</div>
+        <div class="nav-item">
+            <NavLink class="nav-link" href="produits">
+                <span class="nav-ico" aria-hidden="true"></span> Produits
+            </NavLink>
+        </div>
+
+        <div class="nav-section">Logistique</div>
+        <div class="nav-item">
+            <NavLink class="nav-link" href="expeditions">
+                <span class="nav-ico" aria-hidden="true"></span> Expéditions
+            </NavLink>
+        </div>
+
+        <div class="nav-section">Relation client</div>
+        <div class="nav-item">
+            <NavLink class="nav-link" href="avis">
+                <span class="nav-ico" aria-hidden="true"></span> Avis
+            </NavLink>
+        </div>
+        <div class="nav-item">
+            <NavLink class="nav-link" href="messagerie">
+                <span class="nav-ico" aria-hidden="true"></span> Messagerie
+            </NavLink>
+        </div>
+
+        <div class="nav-section">Gestion</div>
+        <div class="nav-item">
+            <NavLink class="nav-link" href="finances">
+                <span class="nav-ico" aria-hidden="true"></span> Finances
+            </NavLink>
+        </div>
+        <div class="nav-item">
+            <NavLink class="nav-link" href="boutique">
+                <span class="nav-ico" aria-hidden="true"></span> Ma boutique
+            </NavLink>
+        </div>
+
+        <div class="nav-section">Système</div>
+        <div class="nav-item">
+            <NavLink class="nav-link" href="composants">
+                <span class="nav-ico" aria-hidden="true"></span> Composants
+            </NavLink>
+        </div>
+    </nav>
+</div>
+
+@code {
+    private bool collapseNavMenu = true;
+    private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
+    private void ToggleNavMenu() => collapseNavMenu = !collapseNavMenu;
+}

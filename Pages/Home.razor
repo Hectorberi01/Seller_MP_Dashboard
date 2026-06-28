@@ -1,0 +1,106 @@
+@page "/"
+@using Seller_MP_Dashboard.Api
+@inject ISellerApi Api
+@inject AuthState Auth
+@inject NavigationManager Nav
+
+<PageTitle>Vue d'ensemble — Espace Vendeur</PageTitle>
+
+<PageHeader Title="Vue d'ensemble"
+            Subtitle="@($"Bonjour {(string.IsNullOrEmpty(Auth.SellerName) ? "vendeur" : Auth.SellerName)} — voici l'activité de votre boutique.")">
+    <Actions>
+        <MpButton Variant="ButtonVariant.Primary" Icon="＋" OnClick="@(() => Nav.NavigateTo("produits"))">Ajouter un produit</MpButton>
+    </Actions>
+</PageHeader>
+
+@if (loadError is not null)
+{
+    <ErrorNotice Title="Tableau de bord indisponible" Message="@loadError" OnRetry="Reload" />
+}
+else if (kpis is null)
+{
+    <p class="mp-caption">Chargement…</p>
+}
+else
+{
+    <div class="kpi-grid">
+        @foreach (var stat in BuildKpis())
+        {
+            <StatCard Stat="stat" />
+        }
+    </div>
+
+    <div class="overview-grid">
+        <MpCard Title="Commandes récentes" Subtitle="À traiter en priorité">
+            <HeaderContent>
+                <MpButton Variant="ButtonVariant.Tertiary" OnClick="@(() => Nav.NavigateTo("commandes"))">Tout voir →</MpButton>
+            </HeaderContent>
+            <ChildContent>
+                <div class="recent-list">
+                    @if (orders is null || orders.Count == 0)
+                    {
+                        <p class="mp-caption">Aucune commande pour l'instant.</p>
+                    }
+                    else
+                    {
+                        @foreach (var o in orders.Take(5))
+                        {
+                            <div class="recent-row">
+                                <div class="recent-main">
+                                    <a class="recent-ref mp-num" href="commande/@o.Id">@o.Reference</a>
+                                    <span class="recent-cust">@o.Customer</span>
+                                </div>
+                                <div class="recent-side">
+                                    <span class="recent-amount mp-num mp-body-strong">@Format.Xof(o.TotalXof)</span>
+                                    <OrderStatusBadge Status="o.UiStatus" />
+                                </div>
+                            </div>
+                        }
+                    }
+                </div>
+            </ChildContent>
+        </MpCard>
+    </div>
+}
+
+<style>
+    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--mp-space-4); margin-bottom: var(--mp-space-6); }
+    .overview-grid { display: grid; grid-template-columns: 1fr; gap: var(--mp-space-4); align-items: start; }
+    .recent-list { display: flex; flex-direction: column; }
+    .recent-row { display: flex; align-items: center; justify-content: space-between; gap: var(--mp-space-4); padding: var(--mp-space-3) 0; border-bottom: 0.5px solid var(--mp-border); }
+    .recent-row:last-child { border-bottom: 0; }
+    .recent-main { display: flex; flex-direction: column; gap: 2px; }
+    .recent-ref { font-size: 13px; color: var(--mp-text-muted); }
+    .recent-cust { font-weight: 500; }
+    .recent-side { display: flex; align-items: center; gap: var(--mp-space-3); }
+    .recent-amount { white-space: nowrap; }
+</style>
+
+@code {
+    private SellerDashboardKpis? kpis;
+    private IReadOnlyList<SellerOrder>? orders;
+    private string? loadError;
+
+    protected override Task OnInitializedAsync() => Reload();
+
+    private async Task Reload()
+    {
+        loadError = null;
+        kpis = null;
+        try
+        {
+            kpis = await Api.GetDashboardAsync();
+            orders = await Api.ListOrdersAsync();
+        }
+        catch (Exception ex) { loadError = ex.Message; }
+    }
+
+    private IEnumerable<KpiStat> BuildKpis()
+    {
+        if (kpis is null) yield break;
+        yield return new KpiStat { Label = "Chiffre d'affaires (30 j)", Value = Format.Xof((int)kpis.GrossSales30d), Sublabel = $"Net : {Format.Xof((int)kpis.NetPayout30d)}", Icon = "💰" };
+        yield return new KpiStat { Label = "Commandes", Value = kpis.OrdersTotal.ToString(), Sublabel = $"{kpis.OrdersToProcess} à traiter", Icon = "🧾" };
+        yield return new KpiStat { Label = "Avis", Value = kpis.ReviewsCount.ToString(), Sublabel = kpis.ReviewsCount > 0 ? $"Note moyenne {kpis.AverageRating:0.0}/5" : "Aucun avis", Icon = "⭐" };
+        yield return new KpiStat { Label = "À traiter", Value = kpis.OrdersToProcess.ToString(), Sublabel = "commandes en attente", Icon = "📦" };
+    }
+}

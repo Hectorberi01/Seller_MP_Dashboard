@@ -1,0 +1,159 @@
+@page "/finances"
+@inject ISellerApi Api
+
+<PageTitle>Finances — Espace Vendeur</PageTitle>
+
+<PageHeader Title="Finances"
+            Subtitle="Relevé de la période et historique des versements." />
+
+@if (loadError is not null)
+{
+    <ErrorNotice Title="Finances indisponibles" Message="@loadError" OnRetry="Load" />
+}
+else if (statement is null || payouts is null)
+{
+    <p class="mp-caption">Chargement…</p>
+}
+else
+{
+    <div class="kpi-grid">
+        <div class="stat-card">
+            <span class="stat-label">Ventes brutes</span>
+            <div class="stat-value mp-num">@Format.Xof(statement.GrossSalesXof)</div>
+            <span class="mp-caption">@Format.Date(statement.From) → @Format.Date(statement.To)</span>
+        </div>
+        <div class="stat-card">
+            <span class="stat-label">Commission</span>
+            <div class="stat-value mp-num neg">-@Format.Xof(statement.CommissionXof)</div>
+            <span class="mp-caption">prélevée par la plateforme</span>
+        </div>
+        <div class="stat-card">
+            <span class="stat-label">Remboursements</span>
+            <div class="stat-value mp-num neg">-@Format.Xof(statement.RefundsXof)</div>
+            <span class="mp-caption">retours clients</span>
+        </div>
+        <div class="stat-card highlight">
+            <span class="stat-label">Revenu net</span>
+            <div class="stat-value mp-num">@Format.Xof(statement.NetEarningsXof)</div>
+            <span class="mp-caption">à verser</span>
+        </div>
+    </div>
+
+    <div class="fin-grid">
+        <MpCard Title="Relevé détaillé" NoPadding="true">
+            <ChildContent>
+                <table class="mp-table">
+                    <thead>
+                        <tr><th>Date</th><th>Libellé</th><th>Type</th><th class="num">Montant</th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var l in statement.Lines)
+                        {
+                            <tr>
+                                <td class="mp-num">@Format.Date(l.Date)</td>
+                                <td>@l.Label</td>
+                                <td>@TypeLabel(l.Type)</td>
+                                <td class="num mp-num @(l.AmountXof < 0 ? "neg" : "pos")">
+                                    @(l.AmountXof < 0 ? "-" : "+")@Format.Xof(Math.Abs(l.AmountXof))
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </ChildContent>
+        </MpCard>
+
+        <MpCard Title="Versements" Subtitle="@ProviderSubtitle">
+            <ChildContent>
+                <div class="payout-list">
+                    @foreach (var p in payouts)
+                    {
+                        <div class="payout-row">
+                            <div class="payout-main">
+                                <span class="mp-body-strong mp-num">@Format.Xof(p.AmountXof)</span>
+                                <span class="mp-caption mp-num">@Format.Date(p.RequestedAt)</span>
+                            </div>
+                            @PayoutBadge(p.Status)
+                        </div>
+                    }
+                </div>
+            </ChildContent>
+        </MpCard>
+    </div>
+}
+
+<style>
+    .kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: var(--mp-space-4);
+        margin-bottom: var(--mp-space-6);
+    }
+    .stat-card {
+        background-color: var(--mp-surface);
+        border: 0.5px solid var(--mp-border);
+        border-radius: var(--mp-radius-lg);
+        padding: var(--mp-space-4);
+        display: flex; flex-direction: column; gap: var(--mp-space-2);
+    }
+    .stat-card.highlight { border-color: var(--mp-primary); background-color: var(--mp-primary-light); }
+    .stat-label { font-size: 13px; color: var(--mp-text-muted); }
+    .stat-value { font-size: 24px; font-weight: 600; color: var(--mp-primary-dark); }
+    .stat-value.neg { color: var(--mp-danger); }
+
+    .fin-grid { display: grid; grid-template-columns: 1.6fr 1fr; gap: var(--mp-space-4); align-items: start; }
+    @@media (max-width: 900px) { .fin-grid { grid-template-columns: 1fr; } }
+
+    .mp-table .pos { color: var(--mp-action); }
+    .mp-table .neg { color: var(--mp-danger); }
+
+    .payout-list { display: flex; flex-direction: column; }
+    .payout-row {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: var(--mp-space-3) 0;
+        border-bottom: 0.5px solid var(--mp-border);
+    }
+    .payout-row:last-child { border-bottom: 0; }
+    .payout-main { display: flex; flex-direction: column; gap: 1px; }
+</style>
+
+@code {
+    private FinanceStatement? statement;
+    private IReadOnlyList<Payout>? payouts;
+    private string? loadError;
+
+    private string ProviderSubtitle => "Vers " + (payouts?.FirstOrDefault()?.Provider ?? "votre compte");
+
+    protected override async Task OnInitializedAsync() => await Load();
+
+    private async Task Load()
+    {
+        try
+        {
+            loadError = null;
+            statement = await Api.GetStatementAsync();
+            payouts = await Api.ListPayoutsAsync();
+        }
+        catch
+        {
+            loadError = "Impossible de joindre le serveur (BFF injoignable ou session expirée).";
+        }
+    }
+
+    private static string TypeLabel(string t) => t switch
+    {
+        "sale" => "Vente",
+        "commission" => "Commission",
+        "refund" => "Remboursement",
+        "payout" => "Versement",
+        _ => t
+    };
+
+    private RenderFragment PayoutBadge(PayoutStatus status) => status switch
+    {
+        PayoutStatus.Paid       => @<MpBadge Variant="BadgeVariant.Stock" Icon="●">Versé</MpBadge>,
+        PayoutStatus.Processing => @<MpBadge Variant="BadgeVariant.Verified" Icon="●">En cours</MpBadge>,
+        PayoutStatus.Pending    => @<MpBadge Variant="BadgeVariant.Promo" Icon="●">En attente</MpBadge>,
+        _                       => @<MpBadge Variant="BadgeVariant.Rupture" Icon="●">Échec</MpBadge>
+    };
+}

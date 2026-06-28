@@ -1,0 +1,23 @@
+@* Graphique en barres — SVG inline, aucune dépendance externe. *@
+
+<div class="chart">
+    <div class="chart-bars">
+        @foreach (var p in Points)
+        {
+            var heightPct = Max > 0 ? (double)p.AmountXof / Max * 100 : 0;
+            <div class="chart-col" title="@($"{p.Label} · {Format.Xof(p.AmountXof)}")">
+                <div class="chart-bar-wrap">
+                    <span class="chart-bar-value mp-num">@(p.AmountXof / 1000)k</span>
+                    <div class="chart-bar @(p.AmountXof == Max ? "is-max" : null)"
+                         style="height:@heightPct.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture)%"></div>
+                </div>
+                <span class="chart-label">@p.Label</span>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<SalesPoint> Points { get; set; } = Array.Empty<SalesPoint>();
+    private int Max => Points.Count > 0 ? Points.Max(p => p.AmountXof) : 0;
+}

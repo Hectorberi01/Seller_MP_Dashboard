@@ -1,0 +1,363 @@
+@page "/boutique"
+@using Microsoft.AspNetCore.Components.Forms
+@inject ISellerApi Api
+
+<PageTitle>Boutique — Espace Vendeur</PageTitle>
+
+<PageHeader Title="Ma boutique"
+            Subtitle="Profil public, compte de versement et documents de vérification (KYB)." />
+
+@if (loadError is not null)
+{
+    <ErrorNotice Title="Boutique indisponible" Message="@loadError" OnRetry="Load" />
+}
+else if (shop is null)
+{
+    <p class="mp-caption">Chargement…</p>
+}
+else
+{
+    <div class="shop-grid">
+        <MpCard Title="Profil de la boutique">
+            <HeaderContent>
+                @if (shop.KybStatus == KybStatus.Verified)
+                {
+                    <MpBadge Variant="BadgeVariant.Verified" Icon="✓">Vérifiée</MpBadge>
+                }
+                else
+                {
+                    <MpBadge Variant="BadgeVariant.Promo" Icon="●">Vérification en cours</MpBadge>
+                }
+            </HeaderContent>
+            <ChildContent>
+                <div class="form">
+                    <div class="field">
+                        <label>Nom de la boutique</label>
+                        <input class="mp-input" @bind="shop.ShopName" />
+                    </div>
+                    <div class="field">
+                        <label>Description</label>
+                        <textarea class="mp-input" rows="3" @bind="shop.Description"></textarea>
+                    </div>
+                    <div class="field">
+                        <label>Logo (URL)</label>
+                        <input class="mp-input" @bind="shop.LogoUrl" placeholder="https://…" />
+                    </div>
+                    <div class="form-actions">
+                        @if (profileSaved)
+                        {
+                            <span class="saved mp-caption">✓ Enregistré</span>
+                        }
+                        <MpButton Variant="ButtonVariant.Primary" OnClick="SaveProfile">Enregistrer</MpButton>
+                    </div>
+                </div>
+            </ChildContent>
+        </MpCard>
+
+        <div class="shop-side">
+            <MpCard Title="Compte de versement">
+                <ChildContent>
+                    @if (shop.Payout is not null)
+                    {
+                        <dl class="kv">
+                            <div><dt>Fournisseur</dt><dd>@shop.Payout.Provider</dd></div>
+                            <div><dt>Compte</dt><dd class="mp-num">@shop.Payout.AccountNumber</dd></div>
+                            <div><dt>Titulaire</dt><dd>@shop.Payout.AccountName</dd></div>
+                        </dl>
+                    }
+                    else
+                    {
+                        <p class="mp-caption">Aucun compte configuré.</p>
+                    }
+                    <MpButton Variant="ButtonVariant.Secondary" OnClick="OpenPayout">@(shop.Payout is null ? "Ajouter un compte" : "Modifier le compte")</MpButton>
+                </ChildContent>
+            </MpCard>
+
+            <MpCard Title="Documents KYB">
+                <ChildContent>
+                    <div class="doc-list">
+                        @foreach (var d in shop.Documents)
+                        {
+                            <div class="doc-row">
+                                <div class="doc-main">
+                                    <span class="doc-type">@d.Type</span>
+                                    <span class="mp-caption mp-num">@Format.Date(d.UploadedAt)</span>
+                                </div>
+                                @KybBadge(d.Status)
+                            </div>
+                        }
+                    </div>
+                    @if (shop.KybStatus == KybStatus.Verified)
+                    {
+                        <p class="mp-caption">✓ Boutique déjà vérifiée — aucun document supplémentaire requis.</p>
+                    }
+                    else
+                    {
+                        <MpButton Variant="ButtonVariant.Tertiary" Icon="＋" OnClick="@(() => _showKyb = true)">Ajouter un document</MpButton>
+                    }
+                </ChildContent>
+            </MpCard>
+
+            <MpCard Title="Lieux d'expédition">
+                <ChildContent>
+                    @if (_locations is null)
+                    {
+                        <p class="mp-caption">Chargement…</p>
+                    }
+                    else if (_locations.Count == 0)
+                    {
+                        <p class="mp-caption">Aucun lieu. Ajoutez-en un pour pouvoir créer des offres.</p>
+                    }
+                    else
+                    {
+                        <div class="doc-list">
+                            @foreach (var l in _locations)
+                            {
+                                <div class="doc-row">
+                                    <div class="doc-main">
+                                        <span class="doc-type">@l.Line</span>
+                                        <span class="mp-caption">@l.City · @l.Country</span>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+
+                    <div class="form" style="margin-top: var(--mp-space-3);">
+                        <div class="field"><label>Adresse</label><input class="mp-input" @bind="_loc.Line" placeholder="12 rue du Commerce" /></div>
+                        <div class="mp-grid-2">
+                            <div class="field"><label>Ville</label><input class="mp-input" @bind="_loc.City" placeholder="Dakar" /></div>
+                            <div class="field"><label>Pays</label><input class="mp-input" @bind="_loc.Country" placeholder="SN" /></div>
+                        </div>
+                        @if (_locError is not null) { <p class="loc-error">@_locError</p> }
+                        <div class="form-actions">
+                            <MpButton Variant="ButtonVariant.Primary" Icon="＋" OnClick="AddLocation">Ajouter le lieu</MpButton>
+                        </div>
+                    </div>
+                </ChildContent>
+            </MpCard>
+        </div>
+    </div>
+
+    <MpModal @bind-Visible="_showPayout" Title="Compte de versement">
+        <ChildContent>
+            <div class="form">
+                <div class="field">
+                    <label>Fournisseur</label>
+                    <select class="mp-input" @bind="_payout.Provider">
+                        <option value="MtnMomo">MTN Mobile Money</option>
+                        <option value="MoovMoney">Moov Money</option>
+                        <option value="Wave">Wave</option>
+                        <option value="BankAccount">Compte bancaire</option>
+                    </select>
+                </div>
+                <div class="field"><label>Numéro de compte / MSISDN</label><input class="mp-input" @bind="_payout.AccountNumber" placeholder="+221770000000" /></div>
+                <div class="field"><label>Titulaire</label><input class="mp-input" @bind="_payout.AccountName" /></div>
+                @if (_payoutError is not null) { <p class="loc-error">@_payoutError</p> }
+            </div>
+        </ChildContent>
+        <Footer>
+            <MpButton Variant="ButtonVariant.Secondary" OnClick="@(() => _showPayout = false)">Annuler</MpButton>
+            <MpButton Variant="ButtonVariant.Primary" OnClick="SavePayout">Enregistrer</MpButton>
+        </Footer>
+    </MpModal>
+
+    <MpModal @bind-Visible="_showKyb" Title="Ajouter une pièce KYB">
+        <ChildContent>
+            <div class="form">
+                <div class="field">
+                    <label>Type de document</label>
+                    <select class="mp-input" @bind="_kybType">
+                        <option value="IdCard">Pièce d'identité</option>
+                        <option value="BusinessRegistry">Registre du commerce</option>
+                        <option value="TaxId">Identifiant fiscal</option>
+                        <option value="ProofOfAddress">Justificatif de domicile</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label>Fichier (image ou PDF)</label>
+                    <InputFile OnChange="OnKybFileSelected" accept="image/*,application/pdf" />
+                </div>
+                @if (_kybUploading) { <p class="mp-caption">Envoi en cours…</p> }
+                @if (_kybError is not null) { <p class="loc-error">@_kybError</p> }
+                @if (_kybDone) { <p class="saved mp-caption">✓ Document envoyé, vérification en cours.</p> }
+            </div>
+        </ChildContent>
+        <Footer>
+            <MpButton Variant="ButtonVariant.Secondary" OnClick="@(() => _showKyb = false)">Fermer</MpButton>
+        </Footer>
+    </MpModal>
+}
+
+<style>
+    .shop-grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: var(--mp-space-4); align-items: start; }
+    @@media (max-width: 900px) { .shop-grid { grid-template-columns: 1fr; } }
+    .shop-side { display: flex; flex-direction: column; gap: var(--mp-space-4); }
+
+    .form { display: flex; flex-direction: column; gap: var(--mp-space-3); }
+    .field { display: flex; flex-direction: column; gap: var(--mp-space-1); }
+    .field label { font-size: 14px; font-weight: 500; }
+    .mp-input {
+        font-family: var(--mp-font-sans); font-size: 15px;
+        padding: 10px 12px; border: 1px solid var(--mp-border);
+        border-radius: var(--mp-radius-md); background-color: var(--mp-surface);
+        color: var(--mp-text); resize: vertical; width: 100%;
+    }
+    .mp-input:focus { outline: none; border-color: var(--mp-primary); }
+    .form-actions { display: flex; align-items: center; justify-content: flex-end; gap: var(--mp-space-3); }
+    .saved { color: var(--mp-action); }
+
+    .kv { display: flex; flex-direction: column; margin: 0 0 var(--mp-space-3) 0; }
+    .kv > div { display: flex; justify-content: space-between; gap: var(--mp-space-4); padding: var(--mp-space-2) 0; border-bottom: 0.5px solid var(--mp-border); }
+    .kv > div:last-child { border-bottom: 0; }
+    .kv dt { color: var(--mp-text-muted); font-size: 14px; }
+    .kv dd { margin: 0; font-weight: 500; }
+
+    .doc-list { display: flex; flex-direction: column; margin-bottom: var(--mp-space-3); }
+    .doc-row { display: flex; align-items: center; justify-content: space-between; padding: var(--mp-space-2) 0; border-bottom: 0.5px solid var(--mp-border); }
+    .doc-row:last-child { border-bottom: 0; }
+    .doc-main { display: flex; flex-direction: column; gap: 1px; }
+    .doc-type { font-weight: 500; }
+    .mp-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--mp-space-3); }
+    .loc-error { color: var(--mp-rupture, #c0392b); font-size: 13px; margin: 0; }
+</style>
+
+@code {
+    private Shop? shop;
+    private bool profileSaved;
+    private string? loadError;
+
+    private IReadOnlyList<Location>? _locations;
+    private LocationForm _loc = new();
+    private string? _locError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Load();
+        await LoadLocations();
+    }
+
+    private async Task Load()
+    {
+        try
+        {
+            loadError = null;
+            shop = await Api.GetShopAsync();
+        }
+        catch
+        {
+            loadError = "Impossible de joindre le serveur (BFF injoignable ou session expirée).";
+        }
+    }
+
+    private async Task LoadLocations()
+    {
+        try { _locations = await Api.ListLocationsAsync(); }
+        catch { _locations = Array.Empty<Location>(); }
+    }
+
+    private async Task AddLocation()
+    {
+        _locError = null;
+        if (string.IsNullOrWhiteSpace(_loc.Line) || string.IsNullOrWhiteSpace(_loc.City) || string.IsNullOrWhiteSpace(_loc.Country))
+        {
+            _locError = "Adresse, ville et pays sont requis.";
+            return;
+        }
+        try
+        {
+            await Api.CreateLocationAsync(new LocationRequest(_loc.Line.Trim(), _loc.City.Trim(), _loc.Country.Trim()));
+            _loc = new LocationForm();
+            await LoadLocations();
+        }
+        catch (Exception ex) { _locError = ex.Message; }
+    }
+
+    private sealed class LocationForm
+    {
+        public string Line { get; set; } = "";
+        public string City { get; set; } = "";
+        public string Country { get; set; } = "";
+    }
+
+    // ---------- Compte de versement ----------
+    private bool _showPayout;
+    private string? _payoutError;
+    private PayoutForm _payout = new();
+
+    private void OpenPayout()
+    {
+        _payoutError = null;
+        _payout = new PayoutForm
+        {
+            Provider = string.IsNullOrWhiteSpace(shop?.Payout?.Provider) ? "MtnMomo" : shop!.Payout!.Provider,
+            AccountNumber = shop?.Payout?.AccountNumber ?? "",
+            AccountName = shop?.Payout?.AccountName ?? shop?.ShopName ?? ""
+        };
+        _showPayout = true;
+    }
+
+    private async Task SavePayout()
+    {
+        _payoutError = null;
+        if (string.IsNullOrWhiteSpace(_payout.AccountNumber) || string.IsNullOrWhiteSpace(_payout.AccountName))
+        {
+            _payoutError = "Numéro de compte et titulaire sont requis.";
+            return;
+        }
+        try
+        {
+            await Api.SetPayoutAccountAsync(new PayoutAccountRequest(_payout.Provider, _payout.AccountNumber.Trim(), _payout.AccountName.Trim()));
+            _showPayout = false;
+            await Load();
+        }
+        catch (Exception ex) { _payoutError = ex.Message; }
+    }
+
+    private sealed class PayoutForm
+    {
+        public string Provider { get; set; } = "MtnMomo";
+        public string AccountNumber { get; set; } = "";
+        public string AccountName { get; set; } = "";
+    }
+
+    // ---------- Pièces KYB ----------
+    private bool _showKyb;
+    private string _kybType = "IdCard";
+    private bool _kybUploading;
+    private bool _kybDone;
+    private string? _kybError;
+    private const long MaxKybBytes = 10 * 1024 * 1024;
+
+    private async Task OnKybFileSelected(InputFileChangeEventArgs e)
+    {
+        _kybError = null; _kybDone = false; _kybUploading = true;
+        try
+        {
+            var file = e.File;
+            using var ms = new MemoryStream();
+            await file.OpenReadStream(MaxKybBytes).CopyToAsync(ms);
+            await Api.UploadKybDocumentFileAsync(_kybType, file.Name,
+                string.IsNullOrEmpty(file.ContentType) ? "application/octet-stream" : file.ContentType, ms.ToArray());
+            _kybDone = true;
+            await Load();
+        }
+        catch (Exception ex) { _kybError = $"Échec de l'envoi : {ex.Message}"; }
+        finally { _kybUploading = false; }
+    }
+
+    private async Task SaveProfile()
+    {
+        if (shop is null) return;
+        await Api.UpdateProfileAsync(new ProfileRequest(shop.ShopName, shop.LogoUrl, shop.Description));
+        profileSaved = true;
+    }
+
+    private RenderFragment KybBadge(KybStatus status) => status switch
+    {
+        KybStatus.Verified  => @<MpBadge Variant="BadgeVariant.Stock" Icon="●">Validé</MpBadge>,
+        KybStatus.Submitted => @<MpBadge Variant="BadgeVariant.Promo" Icon="●">En revue</MpBadge>,
+        KybStatus.Rejected  => @<MpBadge Variant="BadgeVariant.Rupture" Icon="●">Refusé</MpBadge>,
+        _                   => @<MpBadge Variant="BadgeVariant.Neutral">En attente</MpBadge>
+    };
+}

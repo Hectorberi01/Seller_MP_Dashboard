@@ -1,0 +1,148 @@
+/* ============================================================
+   MARKETPLACE — Design System (Vendeur / Admin · Blazor)
+   Source de vérité visuelle. Mêmes tokens que web/mobile.
+   ============================================================ */
+
+:root {
+    /* --- Marque (bleu / confiance) --- */
+    --mp-primary:        #185FA5;
+    --mp-primary-hover:  #0C447C;
+    --mp-primary-dark:   #042C53;
+    --mp-primary-light:  #E6F1FB;
+    --mp-primary-400:    #378ADD;
+
+    /* --- Fonctionnelles --- */
+    --mp-action:         #639922;  /* acheter / succès */
+    --mp-action-hover:   #527E1C;
+    --mp-accent:         #EF9F27;  /* promo */
+    --mp-danger:         #E24B4A;  /* alerte / erreur */
+    --mp-info:           #185FA5;  /* information */
+
+    /* --- Neutres chauds --- */
+    --mp-surface:        #FFFFFF;  /* cartes, surfaces */
+    --mp-surface-2:      #F7F5F0;  /* surfaces secondaires */
+    --mp-bg:             #F1EFE8;  /* fond de page */
+    --mp-text:           #2C2C2A;  /* texte principal */
+    --mp-text-muted:     #888780;  /* texte atténué */
+    --mp-border:         #E5E2D8;  /* bordures fines */
+    --mp-disabled:       #D3D1C7;  /* fond désactivé */
+
+    /* --- Badges (fonds clairs + textes foncés) --- */
+    --mp-badge-stock-bg:   #EAF3DE;  --mp-badge-stock-tx:   #27500A;
+    --mp-badge-promo-bg:   #FAEEDA;  --mp-badge-promo-tx:   #633806;
+    --mp-badge-verif-bg:   #E6F1FB;  --mp-badge-verif-tx:   #0C447C;
+    --mp-badge-rupture-bg: #FCEBEB;  --mp-badge-rupture-tx: #791F1F;
+
+    /* --- Typographie --- */
+    --mp-font-sans: "Inter", -apple-system, "Segoe UI", Roboto, sans-serif;
+
+    /* --- Rayons --- */
+    --mp-radius-md: 8px;   /* éléments */
+    --mp-radius-lg: 12px;  /* cartes */
+    --mp-radius-xl: 16px;  /* modales */
+
+    /* --- Espacements (multiples de 4px) --- */
+    --mp-space-1: 4px;
+    --mp-space-2: 8px;
+    --mp-space-3: 12px;
+    --mp-space-4: 16px;
+    --mp-space-6: 24px;
+    --mp-space-8: 32px;
+}
+
+/* ============================================================
+   Base
+   ============================================================ */
+html, body {
+    font-family: var(--mp-font-sans);
+    background-color: var(--mp-bg);
+    color: var(--mp-text);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4 {
+    color: var(--mp-primary-dark);
+    line-height: 1.25;
+    margin: 0;
+}
+
+/* Échelle typographique de la charte */
+.mp-display { font-size: 34px; font-weight: 700; }
+h1, .mp-h1   { font-size: 28px; font-weight: 600; }
+h2, .mp-h2   { font-size: 22px; font-weight: 600; }
+h3, .mp-h3   { font-size: 18px; font-weight: 600; }
+.mp-body     { font-size: 16px; font-weight: 400; }
+.mp-body-strong { font-size: 16px; font-weight: 600; }
+.mp-caption  { font-size: 13px; font-weight: 400; color: var(--mp-text-muted); }
+
+/* Chiffres tabulaires pour les prix et colonnes numériques */
+.mp-num { font-variant-numeric: tabular-nums; }
+
+a {
+    color: var(--mp-primary);
+    text-decoration: none;
+}
+a:hover { color: var(--mp-primary-hover); text-decoration: underline; }
+
+/* ============================================================
+   Tableaux
+   ============================================================ */
+.mp-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+
+.mp-table thead th {
+    text-align: left;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--mp-text-muted);
+    padding: var(--mp-space-3) var(--mp-space-4);
+    border-bottom: 0.5px solid var(--mp-border);
+    white-space: nowrap;
+}
+
+.mp-table tbody td {
+    padding: var(--mp-space-3) var(--mp-space-4);
+    border-bottom: 0.5px solid var(--mp-border);
+    vertical-align: middle;
+}
+
+.mp-table tbody tr:last-child td { border-bottom: 0; }
+.mp-table tbody tr:hover { background-color: var(--mp-surface-2); }
+
+.mp-table .num { text-align: right; }
+.mp-table .actions-col { text-align: right; white-space: nowrap; }
+
+/* ============================================================
+   Formulaires (partagés : pages + modals)
+   ============================================================ */
+.mp-form { display: flex; flex-direction: column; gap: var(--mp-space-3); }
+.mp-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--mp-space-3); }
+
+.mp-field { display: flex; flex-direction: column; gap: var(--mp-space-1); }
+.mp-field label { font-size: 14px; font-weight: 500; }
+
+.mp-input, .mp-select, .mp-textarea {
+    font-family: var(--mp-font-sans);
+    font-size: 15px;
+    padding: 10px 12px;
+    border: 1px solid var(--mp-border);
+    border-radius: var(--mp-radius-md);
+    background-color: var(--mp-surface);
+    color: var(--mp-text);
+    width: 100%;
+}
+.mp-textarea { resize: vertical; }
+.mp-input:focus, .mp-select:focus, .mp-textarea:focus {
+    outline: none;
+    border-color: var(--mp-primary);
+}
+
+@media (max-width: 520px) {
+    .mp-form-row { grid-template-columns: 1fr; }
+}

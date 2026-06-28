@@ -1,0 +1,42 @@
+@* Fenêtre modale conforme à la charte (overlay + carte centrée). *@
+
+@if (Visible)
+{
+    <div class="modal-overlay" @onclick="OverlayClick">
+        <div class="modal-card" @onclick:stopPropagation="true">
+            <div class="modal-head">
+                <h2>@Title</h2>
+                <button type="button" class="modal-close" aria-label="Fermer" @onclick="Close">✕</button>
+            </div>
+            <div class="modal-body">
+                @ChildContent
+            </div>
+            @if (Footer is not null)
+            {
+                <div class="modal-foot">
+                    @Footer
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool Visible { get; set; }
+    [Parameter] public EventCallback<bool> VisibleChanged { get; set; }
+    [Parameter] public string Title { get; set; } = "";
+    [Parameter] public bool CloseOnOverlay { get; set; } = true;
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public RenderFragment? Footer { get; set; }
+
+    private async Task Close()
+    {
+        Visible = false;
+        await VisibleChanged.InvokeAsync(false);
+    }
+
+    private async Task OverlayClick()
+    {
+        if (CloseOnOverlay) await Close();
+    }
+}

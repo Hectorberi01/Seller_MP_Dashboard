@@ -1,0 +1,91 @@
+.navbar {
+    height: 3.5rem;
+    background-color: var(--mp-primary-dark);
+}
+
+.navbar-toggler {
+    appearance: none;
+    cursor: pointer;
+    width: 3rem;
+    height: 2.5rem;
+    color: white;
+    position: absolute;
+    top: 0.5rem;
+    right: 1rem;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: var(--mp-radius-md);
+    background: rgba(255, 255, 255, 0.1) url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' width='24' height='24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath stroke='rgba(255,255,255,0.85)' stroke-width='2' stroke-linecap='round' d='M4 7h16M4 12h16M4 17h16'/%3E%3C/svg%3E") no-repeat center / 1.5rem;
+}
+
+.navbar-brand {
+    display: flex;
+    align-items: center;
+    gap: var(--mp-space-2);
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: #fff;
+    padding: 0 var(--mp-space-4);
+}
+.navbar-brand:hover { color: #fff; text-decoration: none; }
+
+.brand-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    background-color: var(--mp-primary);
+    color: #fff;
+    border-radius: var(--mp-radius-md);
+    font-weight: 700;
+}
+
+.nav-section {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: var(--mp-space-4) var(--mp-space-4) var(--mp-space-2) var(--mp-space-4);
+}
+
+.nav-item {
+    font-size: 0.95rem;
+    padding: 0 var(--mp-space-3) 2px var(--mp-space-3);
+}
+
+.nav-ico {
+    display: inline-flex;
+    width: 1.4rem;
+    margin-right: var(--mp-space-2);
+}
+
+.nav-item ::deep a {
+    color: rgba(255, 255, 255, 0.82);
+    border-radius: var(--mp-radius-md);
+    height: 2.75rem;
+    display: flex;
+    align-items: center;
+    padding: 0 var(--mp-space-3);
+    line-height: 2.75rem;
+}
+
+.nav-item ::deep a.active {
+    background-color: var(--mp-primary);
+    color: #fff;
+}
+
+.nav-item ::deep a:hover {
+    background-color: rgba(255, 255, 255, 0.12);
+    color: #fff;
+    text-decoration: none;
+}
+
+@media (min-width: 641px) {
+    .navbar-toggler { display: none; }
+    .collapse { display: block; }
+    .nav-scrollable {
+        height: calc(100vh - 3.5rem);
+        overflow-y: auto;
+    }
+}

@@ -1,0 +1,99 @@
+@page "/expeditions"
+@inject ISellerApi Api
+
+<PageTitle>Expéditions — Espace Vendeur</PageTitle>
+
+<PageHeader Title="Expéditions"
+            Subtitle="Préparez, expédiez et suivez les colis de vos commandes." />
+
+@if (loadError is not null)
+{
+    <ErrorNotice Title="Expéditions indisponibles" Message="@loadError" OnRetry="Reload" />
+}
+else if (shipments is null)
+{
+    <p class="mp-caption">Chargement…</p>
+}
+else
+{
+    <MpCard NoPadding="true">
+        <ChildContent>
+            <table class="mp-table">
+                <thead>
+                    <tr>
+                        <th>Commande</th>
+                        <th>Client</th>
+                        <th class="num">Articles</th>
+                        <th>Transporteur</th>
+                        <th>Suivi</th>
+                        <th>Statut</th>
+                        <th class="actions-col">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var s in shipments)
+                    {
+                        <tr>
+                            <td class="mp-num cell-strong">@s.OrderReference</td>
+                            <td>@s.Customer</td>
+                            <td class="num mp-num">@s.ItemCount</td>
+                            <td>@(s.Carrier ?? "—")</td>
+                            <td class="mp-num">@(s.TrackingNumber ?? "—")</td>
+                            <td>@ShipmentBadge(s.Status)</td>
+                            <td class="actions-col">@Actions(s)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </ChildContent>
+    </MpCard>
+}
+
+<style>
+    .cell-strong { font-weight: 500; }
+</style>
+
+@code {
+    private IReadOnlyList<Shipment>? shipments;
+    private string? loadError;
+
+    protected override async Task OnInitializedAsync() => await Reload();
+
+    private async Task Reload()
+    {
+        try
+        {
+            loadError = null;
+            shipments = await Api.ListShipmentsAsync();
+        }
+        catch
+        {
+            loadError = "Impossible de joindre le serveur (BFF injoignable ou session expirée).";
+        }
+    }
+
+    private RenderFragment ShipmentBadge(ShipmentStatus status) => status switch
+    {
+        ShipmentStatus.Pending   => @<MpBadge Variant="BadgeVariant.Promo" Icon="●">À préparer</MpBadge>,
+        ShipmentStatus.Prepared  => @<MpBadge Variant="BadgeVariant.Verified" Icon="●">Préparée</MpBadge>,
+        ShipmentStatus.Shipped   => @<MpBadge Variant="BadgeVariant.Verified" Icon="●">Expédiée</MpBadge>,
+        ShipmentStatus.Delivered => @<MpBadge Variant="BadgeVariant.Stock" Icon="●">Livrée</MpBadge>,
+        _                        => @<MpBadge Variant="BadgeVariant.Rupture" Icon="●">Annulée</MpBadge>
+    };
+
+    private RenderFragment Actions(Shipment s) => s.Status switch
+    {
+        ShipmentStatus.Pending  => @<MpButton Variant="ButtonVariant.Primary" OnClick="@(() => Prepare(s))">Préparer</MpButton>,
+        ShipmentStatus.Prepared => @<MpButton Variant="ButtonVariant.Primary" OnClick="@(() => Ship(s))">Expédier</MpButton>,
+        ShipmentStatus.Shipped  => @<MpButton Variant="ButtonVariant.Action" OnClick="@(() => Deliver(s))">Marquer livrée</MpButton>,
+        _                       => @<MpButton Variant="ButtonVariant.Tertiary">Détails</MpButton>
+    };
+
+    private async Task Prepare(Shipment s) { await Api.PrepareAsync(s.Id); await Reload(); }
+    private async Task Ship(Shipment s)
+    {
+        await Api.ShipAsync(s.Id, new ShipRequest("DHL", $"DHL-{Random.Shared.Next(100000, 999999)}"));
+        await Reload();
+    }
+    private async Task Deliver(Shipment s) { await Api.DeliverAsync(s.Id); await Reload(); }
+}

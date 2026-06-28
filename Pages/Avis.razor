@@ -1,0 +1,93 @@
+@page "/avis"
+@inject ISellerApi Api
+
+<PageTitle>Avis — Espace Vendeur</PageTitle>
+
+<PageHeader 
+    Title="Avis clients"
+    Subtitle="Répondez aux avis et signalez les contenus abusifs." />
+
+@if (_loadError is not null)
+{
+    <ErrorNotice Title="Avis indisponibles" Message="@_loadError" OnRetry="Reload" />
+}
+else if (_reviews is null || _rating is null)
+{
+    <p class="mp-caption">Chargement…</p>
+}
+else
+{
+    <div class="avis-grid">
+        <MpCard Title="Note moyenne" Subtitle="@($"{_rating.Count} avis")">
+            <ChildContent>
+                <div class="rating-summary">
+                    <div class="rating-avg mp-num">@_rating.Average.ToString("0.0")</div>
+                    <div class="rating-stars">@Stars((int)Math.Round(_rating.Average))</div>
+                </div>
+                <div class="rating-breakdown">
+                    @for (int star = 5; star >= 1; star--)
+                    {
+                        var count = _rating.Breakdown[star - 1];
+                        var pct = _rating.Count > 0 ? (double)count / _rating.Count * 100 : 0;
+                        <div class="bd-row">
+                            <span class="bd-star mp-num">@star★</span>
+                            <div class="bd-track"><div class="bd-fill" style="width:@pct.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture)%"></div></div>
+                            <span class="bd-count mp-num">@count</span>
+                        </div>
+                    }
+                </div>
+            </ChildContent>
+        </MpCard>
+
+        <div class="review-list">
+            @foreach (var r in _reviews)
+            {
+                <MpCard>
+                    <ChildContent>
+                        <div class="rev-head">
+                            <div>
+                                <span class="rev-author">@r.Author</span>
+                                <span class="rev-stars">@Stars(r.Rating)</span>
+                            </div>
+                            <span class="mp-caption mp-num">@Format.Date(r.CreatedAt)</span>
+                        </div>
+                        <p class="rev-body">@r.Body</p>
+
+                        @if (r.Flagged)
+                        {
+                            <MpBadge Variant="BadgeVariant.Rupture" Icon="⚑">Signalé</MpBadge>
+                        }
+
+                        @if (r.SellerReply is not null)
+                        {
+                            <div class="rev-reply">
+                                <span class="mp-caption">Votre réponse</span>
+                                <p>@r.SellerReply</p>
+                            </div>
+                        }
+                        else if (_replyingTo == r.Id)
+                        {
+                            <div class="reply-box">
+                                <textarea class="mp-input" rows="2" @bind="_replyText" placeholder="Votre réponse…"></textarea>
+                                <div class="reply-actions">
+                                    <MpButton Variant="ButtonVariant.Tertiary" OnClick="@(() => _replyingTo = Guid.Empty)">Annuler</MpButton>
+                                    <MpButton Variant="ButtonVariant.Primary" OnClick="@(() => SubmitReply(r))">Envoyer</MpButton>
+                                </div>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="rev-actions">
+                                <MpButton Variant="ButtonVariant.Secondary" OnClick="@(() => StartReply(r))">Répondre</MpButton>
+                                @if (!r.Flagged)
+                                {
+                                    <MpButton Variant="ButtonVariant.Tertiary" OnClick="@(() => Flag(r))">Signaler</MpButton>
+                                }
+                            </div>
+                        }
+                    </ChildContent>
+                </MpCard>
+            }
+        </div>
+    </div>
+}

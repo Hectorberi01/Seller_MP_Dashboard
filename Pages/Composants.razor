@@ -1,0 +1,150 @@
+@page "/composants"
+
+<PageTitle>Composants — Design System</PageTitle>
+
+<PageHeader Title="Bibliothèque de composants"
+            Subtitle="Les éléments réutilisables du dashboard, conformes à la charte Marketplace." />
+
+<div class="showcase">
+
+    <MpCard Title="Boutons" Subtitle="Une seule action (vert) par écran. Le reste est primaire (bleu) ou secondaire (contour).">
+        <ChildContent>
+            <div class="swatch-row">
+                <MpButton Variant="ButtonVariant.Action" Icon="🛒">Acheter</MpButton>
+                <MpButton Variant="ButtonVariant.Primary">Valider</MpButton>
+                <MpButton Variant="ButtonVariant.Secondary">Au panier</MpButton>
+                <MpButton Variant="ButtonVariant.Tertiary">Voir le détail</MpButton>
+                <MpButton Variant="ButtonVariant.Danger" Icon="🗑">Supprimer</MpButton>
+                <MpButton Variant="ButtonVariant.Primary" Disabled="true">Indisponible</MpButton>
+            </div>
+            <p class="mp-caption legend">Action · Primaire · Secondaire · Tertiaire · Danger · Désactivé</p>
+        </ChildContent>
+    </MpCard>
+
+    <MpCard Title="Badges & pastilles" Subtitle="La couleur double toujours un libellé (accessibilité).">
+        <ChildContent>
+            <div class="swatch-row">
+                <MpBadge Variant="BadgeVariant.Stock" Icon="●">En stock</MpBadge>
+                <MpBadge Variant="BadgeVariant.Promo">-17%</MpBadge>
+                <MpBadge Variant="BadgeVariant.Verified" Icon="✓">Vendeur vérifié</MpBadge>
+                <MpBadge Variant="BadgeVariant.Rupture" Icon="●">Rupture</MpBadge>
+                <MpBadge Variant="BadgeVariant.Neutral">Information</MpBadge>
+            </div>
+        </ChildContent>
+    </MpCard>
+
+    <MpCard Title="Palette de couleurs" Subtitle="Bleu = marque, vert = action, ambre = promo, rouge = alerte.">
+        <ChildContent>
+            <div class="color-grid">
+                @foreach (var c in Colors)
+                {
+                    <div class="color-item">
+                        <div class="color-chip" style="background-color:@c.Hex"></div>
+                        <div class="color-meta">
+                            <span class="color-name">@c.Name</span>
+                            <span class="mp-caption mp-num">@c.Hex</span>
+                        </div>
+                    </div>
+                }
+            </div>
+        </ChildContent>
+    </MpCard>
+
+    <MpCard Title="Typographie" Subtitle="Inter · deux graisses (400, 500/600). Hiérarchie par taille et poids.">
+        <ChildContent>
+            <div class="type-scale">
+                <div class="mp-display">Display — 34 / 700</div>
+                <h1>Titre H1 — 28 / 600</h1>
+                <h2>Sous-titre H2 — 22 / 600</h2>
+                <h3>Titre H3 — 18 / 600</h3>
+                <p class="mp-body">Corps — 16 / 400. Lisible sur petit écran et en plein soleil.</p>
+                <p class="mp-body-strong">Corps fort — 16 / 600. Mise en avant dans le texte.</p>
+                <p class="mp-caption">Légende — 13 / 400 atténué · métadonnées, mentions.</p>
+            </div>
+        </ChildContent>
+    </MpCard>
+
+    <MpCard Title="Carte produit" Subtitle="Le système appliqué : nom, puis prix, puis statut — action verte en dernier.">
+        <ChildContent>
+            <div class="product-demo">
+                <div class="pd-image" aria-hidden="true">🎧</div>
+                <div class="pd-body">
+                    <div class="pd-head">
+                        <h3>Casque audio sans fil</h3>
+                        <MpBadge Variant="BadgeVariant.Verified" Icon="✓">Vérifié</MpBadge>
+                    </div>
+                    <span class="mp-caption">AfriTech Store · ★ 4.6 · 128 avis</span>
+                    <div class="pd-price">
+                        <span class="pd-now mp-num">@Format.Xof(12500)</span>
+                        <span class="pd-old mp-num">@Format.Xof(15000)</span>
+                        <MpBadge Variant="BadgeVariant.Promo">-17%</MpBadge>
+                    </div>
+                    <MpBadge Variant="BadgeVariant.Stock" Icon="●">En stock · Livré en 2-3 jours</MpBadge>
+                    <div class="pd-actions">
+                        <MpButton Variant="ButtonVariant.Secondary" FullWidth="true">Au panier</MpButton>
+                        <MpButton Variant="ButtonVariant.Action" FullWidth="true">Acheter</MpButton>
+                    </div>
+                </div>
+            </div>
+        </ChildContent>
+    </MpCard>
+
+</div>
+
+<style>
+    .showcase { display: flex; flex-direction: column; gap: var(--mp-space-4); }
+    .swatch-row { display: flex; flex-wrap: wrap; gap: var(--mp-space-3); align-items: center; }
+    .legend { margin-top: var(--mp-space-3); }
+
+    .color-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+        gap: var(--mp-space-3);
+    }
+    .color-item { display: flex; align-items: center; gap: var(--mp-space-3); }
+    .color-chip {
+        width: 44px; height: 44px;
+        border-radius: var(--mp-radius-md);
+        border: 0.5px solid var(--mp-border);
+        flex-shrink: 0;
+    }
+    .color-meta { display: flex; flex-direction: column; }
+    .color-name { font-size: 14px; font-weight: 500; }
+
+    .type-scale { display: flex; flex-direction: column; gap: var(--mp-space-3); }
+
+    .product-demo {
+        max-width: 320px;
+        border: 0.5px solid var(--mp-border);
+        border-radius: var(--mp-radius-lg);
+        overflow: hidden;
+    }
+    .pd-image {
+        height: 140px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 56px;
+        background-color: var(--mp-surface-2);
+    }
+    .pd-body { padding: var(--mp-space-4); display: flex; flex-direction: column; gap: var(--mp-space-2); }
+    .pd-head { display: flex; align-items: center; justify-content: space-between; gap: var(--mp-space-2); }
+    .pd-price { display: flex; align-items: center; gap: var(--mp-space-2); }
+    .pd-now { font-size: 22px; font-weight: 600; color: var(--mp-primary-dark); }
+    .pd-old { font-size: 14px; color: var(--mp-text-muted); text-decoration: line-through; }
+    .pd-actions { display: flex; gap: var(--mp-space-2); margin-top: var(--mp-space-2); }
+</style>
+
+@code {
+    private record Swatch(string Name, string Hex);
+    private readonly Swatch[] Colors =
+    {
+        new("Bleu — marque", "#185FA5"),
+        new("Bleu foncé", "#042C53"),
+        new("Vert — action", "#639922"),
+        new("Ambre — promo", "#EF9F27"),
+        new("Rouge — alerte", "#E24B4A"),
+        new("Fond de page", "#F1EFE8"),
+        new("Surface", "#FFFFFF"),
+        new("Texte principal", "#2C2C2A"),
+        new("Texte atténué", "#888780"),
+    };
+}

@@ -1,0 +1,24 @@
+@* Pastille de statut. La couleur double toujours un libellé (accessibilité). *@
+
+<span class="mp-badge @VariantClass">
+    @if (!string.IsNullOrEmpty(Icon))
+    {
+        <span class="mp-badge-icon" aria-hidden="true">@Icon</span>
+    }
+    @ChildContent
+</span>
+
+@code {
+    [Parameter] public BadgeVariant Variant { get; set; } = BadgeVariant.Neutral;
+    [Parameter] public string? Icon { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private string VariantClass => Variant switch
+    {
+        BadgeVariant.Stock    => "mp-badge-stock",
+        BadgeVariant.Promo    => "mp-badge-promo",
+        BadgeVariant.Verified => "mp-badge-verified",
+        BadgeVariant.Rupture  => "mp-badge-rupture",
+        _                     => "mp-badge-neutral"
+    };
+}

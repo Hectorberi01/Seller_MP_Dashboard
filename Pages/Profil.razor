@@ -1,0 +1,136 @@
+@page "/profil"
+@inject ISellerApi Api
+@inject AuthState Auth
+@inject NavigationManager Nav
+
+<PageTitle>Profil — Espace Vendeur</PageTitle>
+
+<PageHeader Title="Mon profil"
+            Subtitle="Vos informations personnelles et la sécurité du compte." />
+
+@if (loadError is not null)
+{
+    <ErrorNotice Title="Profil indisponible" Message="@loadError" OnRetry="Load" />
+}
+else if (u is null)
+{
+    <p class="mp-caption">Chargement…</p>
+}
+else
+{
+<div class="profil-grid">
+    <MpCard>
+        <ChildContent>
+            <div class="identity">
+                <div class="avatar-lg" aria-hidden="true">@u.Initials</div>
+                <div class="identity-main">
+                    <h2>@u.FullName</h2>
+                    <span class="mp-caption">@u.Role</span>
+                    <div class="identity-badges">
+                        <MpBadge Variant="BadgeVariant.Verified" Icon="✓">Compte vérifié</MpBadge>
+                        @if (u.MfaEnabled)
+                        {
+                            <MpBadge Variant="BadgeVariant.Stock" Icon="🔒">MFA actif</MpBadge>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <dl class="kv">
+                <div><dt>E-mail</dt><dd>@u.Email</dd></div>
+                <div><dt>Téléphone</dt><dd class="mp-num">@(u.PhoneNumber ?? "—")</dd></div>
+                <div><dt>Boutique</dt><dd><a href="boutique">@(u.ShopName ?? "—")</a></dd></div>
+                <div><dt>Rôle</dt><dd>@u.Role</dd></div>
+                <div><dt>Membre depuis</dt><dd>@Format.Date(u.CreatedAt)</dd></div>
+            </dl>
+        </ChildContent>
+    </MpCard>
+
+    <div class="profil-side">
+        <MpCard Title="Sécurité">
+            <ChildContent>
+                <div class="security-row">
+                    <div>
+                        <span class="sec-title">Double authentification</span>
+                        <span class="mp-caption">@(u.MfaEnabled ? "Activée — code requis à la connexion." : "Désactivée.")</span>
+                    </div>
+                    @if (u.MfaEnabled)
+                    {
+                        <MpBadge Variant="BadgeVariant.Stock">Activée</MpBadge>
+                    }
+                    else
+                    {
+                        <MpBadge Variant="BadgeVariant.Promo">Désactivée</MpBadge>
+                    }
+                </div>
+                <div class="security-actions">
+                    <MpButton Variant="ButtonVariant.Secondary">Changer le mot de passe</MpButton>
+                    <MpButton Variant="ButtonVariant.Tertiary">Gérer les appareils</MpButton>
+                </div>
+            </ChildContent>
+        </MpCard>
+
+        <MpCard Title="Session">
+            <ChildContent>
+                <p class="mp-caption">Connecté en tant que @u.Email.</p>
+                <MpButton Variant="ButtonVariant.Danger" Icon="⏻" OnClick="Logout">Se déconnecter</MpButton>
+            </ChildContent>
+        </MpCard>
+    </div>
+</div>
+}
+
+@code {
+    private AccountMe? u;
+    private string? loadError;
+
+    protected override async Task OnInitializedAsync() => await Load();
+
+    private async Task Load()
+    {
+        try
+        {
+            loadError = null;
+            u = await Api.GetAccountAsync();
+        }
+        catch
+        {
+            loadError = "Impossible de joindre le serveur (BFF injoignable ou session expirée).";
+        }
+    }
+
+    private async Task Logout()
+    {
+        await Auth.ClearAsync();
+        Nav.NavigateTo("login");
+    }
+}
+
+<style>
+    .profil-grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: var(--mp-space-4); align-items: start; }
+    @@media (max-width: 900px) { .profil-grid { grid-template-columns: 1fr; } }
+    .profil-side { display: flex; flex-direction: column; gap: var(--mp-space-4); }
+
+    .identity { display: flex; align-items: center; gap: var(--mp-space-4); margin-bottom: var(--mp-space-4); }
+    .avatar-lg {
+        width: 72px; height: 72px;
+        border-radius: 999px;
+        background-color: var(--mp-primary);
+        color: #fff;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 28px; font-weight: 600;
+        flex-shrink: 0;
+    }
+    .identity-main { display: flex; flex-direction: column; gap: var(--mp-space-1); }
+    .identity-badges { display: flex; gap: var(--mp-space-2); flex-wrap: wrap; margin-top: var(--mp-space-1); }
+
+    .kv { display: flex; flex-direction: column; margin: 0; }
+    .kv > div { display: flex; justify-content: space-between; gap: var(--mp-space-4); padding: var(--mp-space-3) 0; border-bottom: 0.5px solid var(--mp-border); }
+    .kv > div:last-child { border-bottom: 0; }
+    .kv dt { color: var(--mp-text-muted); font-size: 14px; }
+    .kv dd { margin: 0; font-weight: 500; text-align: right; }
+
+    .security-row { display: flex; align-items: center; justify-content: space-between; gap: var(--mp-space-3); padding-bottom: var(--mp-space-3); border-bottom: 0.5px solid var(--mp-border); margin-bottom: var(--mp-space-3); }
+    .sec-title { display: block; font-weight: 500; }
+    .security-actions { display: flex; gap: var(--mp-space-2); flex-wrap: wrap; }
+</style>

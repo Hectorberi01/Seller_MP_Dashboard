@@ -1,0 +1,19 @@
+@* Mappe un StockStatus vers le bon badge (couleur + libellé, jamais la couleur seule). *@
+
+@if (Status == StockStatus.OutOfStock)
+{
+    <MpBadge Variant="BadgeVariant.Rupture" Icon="●">Rupture</MpBadge>
+}
+else if (Status == StockStatus.LowStock)
+{
+    <MpBadge Variant="BadgeVariant.Promo" Icon="●">Stock faible (@Stock)</MpBadge>
+}
+else
+{
+    <MpBadge Variant="BadgeVariant.Stock" Icon="●">En stock</MpBadge>
+}
+
+@code {
+    [Parameter, EditorRequired] public StockStatus Status { get; set; }
+    [Parameter] public int Stock { get; set; }
+}

@@ -1,0 +1,25 @@
+@* Carte KPI pour la vue d'ensemble. *@
+
+<div class="stat-card">
+    <div class="stat-top">
+        <span class="stat-label">@Stat.Label</span>
+        <span class="stat-icon" aria-hidden="true">@Stat.Icon</span>
+    </div>
+    <div class="stat-value mp-num">@Stat.Value</div>
+    <div class="stat-foot">
+        @if (Stat.TrendPercent is not null)
+        {
+            <span class="stat-trend @(Stat.TrendIsGood ? "up" : "down")">
+                @(Stat.TrendIsGood ? "▲" : "▼") @Math.Abs(Stat.TrendPercent.Value).ToString("0.#")%
+            </span>
+        }
+        @if (!string.IsNullOrEmpty(Stat.Sublabel))
+        {
+            <span class="stat-sub">@Stat.Sublabel</span>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public KpiStat Stat { get; set; } = default!;
+}

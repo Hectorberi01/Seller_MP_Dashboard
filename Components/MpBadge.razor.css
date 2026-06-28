@@ -1,0 +1,19 @@
+.mp-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1;
+    padding: 4px 10px;
+    border-radius: 999px;
+    white-space: nowrap;
+}
+
+.mp-badge-icon { font-size: 1em; }
+
+.mp-badge-stock    { background-color: var(--mp-badge-stock-bg);   color: var(--mp-badge-stock-tx); }
+.mp-badge-promo    { background-color: var(--mp-badge-promo-bg);   color: var(--mp-badge-promo-tx); }
+.mp-badge-verified { background-color: var(--mp-badge-verif-bg);   color: var(--mp-badge-verif-tx); }
+.mp-badge-rupture  { background-color: var(--mp-badge-rupture-bg); color: var(--mp-badge-rupture-tx); }
+.mp-badge-neutral  { background-color: var(--mp-surface-2);        color: var(--mp-text-muted); }

@@ -1,0 +1,175 @@
+@page "/messagerie"
+@inject ISellerApi Api
+
+<PageTitle>Messagerie — Espace Vendeur</PageTitle>
+
+<PageHeader Title="Messagerie"
+            Subtitle="Échangez avec vos clients sur leurs commandes." />
+
+@if (loadError is not null)
+{
+    <ErrorNotice Title="Messagerie indisponible" Message="@loadError" OnRetry="Load" />
+}
+else if (conversations is null)
+{
+    <p class="mp-caption">Chargement…</p>
+}
+else
+{
+    <div class="msg-layout">
+        <MpCard NoPadding="true">
+            <ChildContent>
+                <div class="conv-list">
+                    @foreach (var c in conversations)
+                    {
+                        <button class="conv-item @(c.Id == selectedId ? "is-active" : null)" @onclick="@(() => Select(c.Id))">
+                            <div class="conv-top">
+                                <span class="conv-name">@c.Customer</span>
+                                @if (c.Unread > 0)
+                                {
+                                    <span class="conv-badge mp-num">@c.Unread</span>
+                                }
+                            </div>
+                            <span class="conv-subject mp-caption">@c.Subject</span>
+                            <span class="conv-preview">@c.LastMessage</span>
+                        </button>
+                    }
+                </div>
+            </ChildContent>
+        </MpCard>
+
+        <MpCard NoPadding="true">
+            <ChildContent>
+                @if (selected is null)
+                {
+                    <div class="thread-empty mp-caption">Sélectionnez une conversation.</div>
+                }
+                else
+                {
+                    <div class="thread">
+                        <div class="thread-head">
+                            <span class="thread-name">@selected.Customer</span>
+                            <span class="mp-caption">@selected.Subject</span>
+                        </div>
+                        <div class="thread-body">
+                            @if (messages is not null)
+                            {
+                                @foreach (var m in messages)
+                                {
+                                    <div class="bubble-row @(m.FromSeller ? "me" : "them")">
+                                        <div class="bubble">
+                                            <p>@m.Body</p>
+                                            <span class="bubble-time mp-num">@m.SentAt.ToString("dd/MM HH:mm")</span>
+                                        </div>
+                                    </div>
+                                }
+                            }
+                        </div>
+                        <div class="thread-compose">
+                            <input class="mp-input" @bind="draft" @bind:event="oninput"
+                                   @onkeydown="OnKey" placeholder="Votre message…" />
+                            <MpButton Variant="ButtonVariant.Primary" OnClick="Send" Disabled="@string.IsNullOrWhiteSpace(draft)">Envoyer</MpButton>
+                        </div>
+                    </div>
+                }
+            </ChildContent>
+        </MpCard>
+    </div>
+}
+
+<style>
+    .msg-layout { display: grid; grid-template-columns: 320px 1fr; gap: var(--mp-space-4); align-items: stretch; height: 70vh; }
+    @@media (max-width: 860px) { .msg-layout { grid-template-columns: 1fr; height: auto; } }
+
+    .conv-list { display: flex; flex-direction: column; }
+    .conv-item {
+        appearance: none; cursor: pointer; text-align: left;
+        background: none; border: none;
+        border-bottom: 0.5px solid var(--mp-border);
+        padding: var(--mp-space-3) var(--mp-space-4);
+        display: flex; flex-direction: column; gap: 2px;
+        font-family: var(--mp-font-sans); color: var(--mp-text);
+    }
+    .conv-item:hover { background-color: var(--mp-surface-2); }
+    .conv-item.is-active { background-color: var(--mp-primary-light); }
+    .conv-top { display: flex; align-items: center; justify-content: space-between; }
+    .conv-name { font-weight: 600; }
+    .conv-badge {
+        background-color: var(--mp-primary); color: #fff;
+        font-size: 11px; font-weight: 600;
+        min-width: 18px; height: 18px; padding: 0 5px;
+        border-radius: 999px; display: inline-flex; align-items: center; justify-content: center;
+    }
+    .conv-preview { font-size: 13px; color: var(--mp-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .thread { display: flex; flex-direction: column; height: 100%; }
+    .thread-empty { padding: var(--mp-space-8); text-align: center; }
+    .thread-head { padding: var(--mp-space-3) var(--mp-space-4); border-bottom: 0.5px solid var(--mp-border); display: flex; flex-direction: column; }
+    .thread-name { font-weight: 600; }
+    .thread-body { flex: 1; overflow-y: auto; padding: var(--mp-space-4); display: flex; flex-direction: column; gap: var(--mp-space-2); }
+
+    .bubble-row { display: flex; }
+    .bubble-row.me { justify-content: flex-end; }
+    .bubble {
+        max-width: 70%;
+        padding: var(--mp-space-2) var(--mp-space-3);
+        border-radius: var(--mp-radius-lg);
+    }
+    .bubble p { margin: 0; }
+    .bubble-time { font-size: 11px; color: var(--mp-text-muted); display: block; margin-top: 2px; }
+    .bubble-row.them .bubble { background-color: var(--mp-surface-2); border-top-left-radius: 2px; }
+    .bubble-row.me .bubble { background-color: var(--mp-primary-light); border-top-right-radius: 2px; }
+
+    .thread-compose { display: flex; gap: var(--mp-space-2); padding: var(--mp-space-3) var(--mp-space-4); border-top: 0.5px solid var(--mp-border); }
+    .mp-input {
+        flex: 1; font-family: var(--mp-font-sans); font-size: 15px;
+        padding: 10px 12px; border: 1px solid var(--mp-border);
+        border-radius: var(--mp-radius-md); background-color: var(--mp-surface); color: var(--mp-text);
+    }
+    .mp-input:focus { outline: none; border-color: var(--mp-primary); }
+</style>
+
+@code {
+    private IReadOnlyList<Conversation>? conversations;
+    private Conversation? selected;
+    private Guid selectedId = Guid.Empty;
+    private IReadOnlyList<Message>? messages;
+    private string draft = "";
+    private string? loadError;
+
+    protected override async Task OnInitializedAsync() => await Load();
+
+    private async Task Load()
+    {
+        try
+        {
+            loadError = null;
+            conversations = await Api.ListConversationsAsync();
+            if (conversations.Count > 0) await Select(conversations[0].Id);
+        }
+        catch
+        {
+            loadError = "Impossible de joindre le serveur (BFF injoignable ou session expirée).";
+        }
+    }
+
+    private async Task Select(Guid id)
+    {
+        selectedId = id;
+        selected = conversations?.FirstOrDefault(c => c.Id == id);
+        messages = await Api.GetMessagesAsync(id);
+    }
+
+    private async Task Send()
+    {
+        if (string.IsNullOrWhiteSpace(draft) || selected is null) return;
+        await Api.SendAsync(selected.Id, new SendRequest(draft));
+        draft = "";
+        messages = await Api.GetMessagesAsync(selected.Id);
+    }
+
+    private async Task OnKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await Send();
+    }
+}

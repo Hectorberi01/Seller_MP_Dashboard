@@ -1,0 +1,9 @@
+@page "/offres"
+@inject NavigationManager Nav
+
+@* Les offres sont désormais gérées depuis la fiche détail de chaque produit.
+   Cette route est conservée en redirection pour ne pas casser d'anciens liens. *@
+
+@code {
+    protected override void OnInitialized() => Nav.NavigateTo("produits", replace: true);
+}

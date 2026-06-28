@@ -1,0 +1,41 @@
+@page "/login"
+@layout BlankLayout
+@inject ISellerApi Api
+@inject AuthState Auth
+@inject NavigationManager Nav
+
+<PageTitle>Connexion — Espace Vendeur</PageTitle>
+
+<div class="login-card">
+    <div class="login-brand">
+        <span class="brand-mark">M</span>
+        <span>Marketplace · Vendeur</span>
+    </div>
+    <h1>Connexion</h1>
+    <p class="mp-caption">Accédez à votre espace vendeur.</p>
+
+    <EditForm Model="_login" OnValidSubmit="HandleLogin">
+        <div class="field">
+            <label for="email">E-mail</label>
+            <InputText id="email" class="mp-input" @bind-Value="_login.Email" placeholder="vous@boutique.com" />
+        </div>
+        <div class="field">
+            <label for="pwd">Mot de passe</label>
+            <InputText id="pwd" type="password" class="mp-input" @bind-Value="_login.Password" placeholder="••••••••" />
+        </div>
+        <div class="field">
+            <label for="mfa">Code MFA <span class="mp-caption">(optionnel)</span></label>
+            <InputText id="mfa" class="mp-input" @bind-Value="_login.MfaCode" placeholder="123456" />
+        </div>
+
+        @if (_error is not null)
+        {
+            <p class="login-error">@_error</p>
+        }
+
+        <MpButton Variant="ButtonVariant.Primary" Type="submit" FullWidth="true" Disabled="_busy">
+            @(_busy ? "Connexion…" : "Se connecter")
+        </MpButton>
+    </EditForm>
+</div>
+

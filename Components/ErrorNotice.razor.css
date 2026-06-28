@@ -1,0 +1,13 @@
+.error-notice {
+    display: flex;
+    align-items: center;
+    gap: var(--mp-space-3);
+    padding: var(--mp-space-4);
+    background-color: var(--mp-badge-rupture-bg);
+    border: 0.5px solid var(--mp-danger);
+    border-radius: var(--mp-radius-lg);
+}
+
+.err-icon { font-size: 22px; }
+.err-text { display: flex; flex-direction: column; flex: 1; gap: 1px; }
+.err-title { font-weight: 600; color: var(--mp-badge-rupture-tx); }

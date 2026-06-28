@@ -1,0 +1,123 @@
+.avis-grid { 
+    display: grid; 
+    grid-template-columns: 300px 1fr; 
+    gap: var(--mp-space-4); align-items: start; 
+}
+
+@media (max-width: 860px) { 
+    .avis-grid { 
+        grid-template-columns: 1fr; 
+    } 
+}
+
+.rating-summary { 
+    display: flex; 
+    align-items: center; 
+    gap: var(--mp-space-3); 
+    margin-bottom: var(--mp-space-4); 
+}
+
+.rating-avg { 
+    font-size: 40px; 
+    font-weight: 700; 
+    color: var(--mp-primary-dark); 
+}
+
+.rating-stars, .rev-stars { 
+    color: var(--mp-accent); 
+    letter-spacing: 1px; 
+}
+
+.rating-breakdown { 
+    display: flex; 
+    flex-direction: column; 
+    gap: var(--mp-space-2); 
+}
+
+.bd-row { 
+    display: flex; 
+    align-items: center; 
+    gap: var(--mp-space-2); 
+    font-size: 13px; 
+}
+
+.bd-star {
+    width: 28px; 
+    color: var(--mp-text-muted); 
+}
+
+.bd-track { 
+    flex: 1; 
+    height: 8px; 
+    background-color: var(--mp-surface-2); 
+    border-radius: 999px; 
+    overflow: hidden; 
+}
+
+.bd-fill { 
+    height: 100%; 
+    background-color: var(--mp-accent); 
+}
+.bd-count { 
+    width: 24px; 
+    text-align: right; 
+    color: var(--mp-text-muted); 
+}
+
+.review-list { 
+    display: flex; 
+    flex-direction: column;
+    gap: var(--mp-space-3); 
+}
+.rev-head { 
+    display: flex; 
+    align-items: flex-start; 
+    justify-content: space-between; 
+    gap: var(--mp-space-3); 
+    margin-bottom: var(--mp-space-2); 
+}
+.rev-author { 
+    font-weight: 600; 
+    margin-right: var(--mp-space-2); 
+}
+.rev-body { 
+    margin: 0 0 var(--mp-space-3) 0; 
+}
+.rev-actions, .reply-actions { 
+    display: flex;
+    gap: var(--mp-space-2); 
+}
+.rev-reply {
+    margin-top: var(--mp-space-3);
+    padding: var(--mp-space-3);
+    background-color: var(--mp-surface-2);
+    border-radius: var(--mp-radius-md);
+    border-left: 3px solid var(--mp-primary);
+}
+.rev-reply p { 
+    margin: var(--mp-space-1) 0 0 0; 
+}
+.reply-box { 
+    display: flex; 
+    flex-direction: column; 
+    gap: var(--mp-space-2); 
+    margin-top: var(--mp-space-2); 
+}
+.mp-input {
+    font-family: var(--mp-font-sans); 
+    font-size: 15px;
+    padding: 10px 12px; 
+    border: 1px solid var(--mp-border);
+    border-radius: var(--mp-radius-md); 
+    background-color: var(--mp-surface);
+    color: var(--mp-text); 
+    resize: vertical; 
+    width: 100%;
+}
+.mp-input:focus { 
+    outline: none; 
+    border-color: var(--mp-primary); 
+}
+.reply-actions { 
+    justify-content: flex-end; 
+}

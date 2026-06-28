@@ -1,0 +1,22 @@
+@* Bandeau d'erreur réutilisable (BFF injoignable, 401, etc.). *@
+
+<div class="error-notice">
+    <span class="err-icon" aria-hidden="true">⚠️</span>
+    <div class="err-text">
+        <span class="err-title">@Title</span>
+        @if (!string.IsNullOrEmpty(Message))
+        {
+            <span class="mp-caption">@Message</span>
+        }
+    </div>
+    @if (OnRetry.HasDelegate)
+    {
+        <MpButton Variant="ButtonVariant.Secondary" OnClick="OnRetry">Réessayer</MpButton>
+    }
+</div>
+
+@code {
+    [Parameter] public string Title { get; set; } = "Données indisponibles";
+    [Parameter] public string? Message { get; set; }
+    [Parameter] public EventCallback OnRetry { get; set; }
+}

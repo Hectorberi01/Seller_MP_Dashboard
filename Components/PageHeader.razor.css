@@ -1,0 +1,21 @@
+.page-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--mp-space-4);
+    flex-wrap: wrap;
+    margin-bottom: var(--mp-space-6);
+}
+
+.page-subtitle {
+    font-size: 16px;
+    color: var(--mp-text-muted);
+    margin: var(--mp-space-1) 0 0 0;
+}
+
+.page-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--mp-space-2);
+    flex-wrap: wrap;
+}

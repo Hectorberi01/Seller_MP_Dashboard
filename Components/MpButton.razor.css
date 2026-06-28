@@ -1,0 +1,49 @@
+.mp-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--mp-space-2);
+    font-family: var(--mp-font-sans);
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 1;
+    padding: 12px 20px;
+    min-height: 44px; /* zone tactile minimale (charte) */
+    border-radius: var(--mp-radius-md);
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: background-color .15s ease, border-color .15s ease, color .15s ease;
+    text-decoration: none;
+}
+
+.mp-btn-block { width: 100%; }
+.mp-btn-icon { font-size: 1.05em; line-height: 1; }
+
+/* Action — vert d'achat */
+.mp-btn-action { background-color: var(--mp-action); color: #fff; }
+.mp-btn-action:hover { background-color: var(--mp-action-hover); }
+
+/* Primaire — bleu de marque */
+.mp-btn-primary { background-color: var(--mp-primary); color: #fff; }
+.mp-btn-primary:hover { background-color: var(--mp-primary-hover); }
+
+/* Secondaire — contour bleu */
+.mp-btn-secondary { background-color: transparent; color: var(--mp-primary); border-color: var(--mp-primary); }
+.mp-btn-secondary:hover { background-color: var(--mp-primary-light); }
+
+/* Tertiaire — texte seul */
+.mp-btn-tertiary { background-color: transparent; color: var(--mp-primary); padding-left: 8px; padding-right: 8px; min-height: auto; }
+.mp-btn-tertiary:hover { color: var(--mp-primary-hover); text-decoration: underline; }
+
+/* Danger — rouge */
+.mp-btn-danger { background-color: var(--mp-danger); color: #fff; }
+.mp-btn-danger:hover { background-color: #C53B3A; }
+
+/* Désactivé */
+.mp-btn:disabled {
+    background-color: var(--mp-disabled);
+    color: var(--mp-text-muted);
+    border-color: transparent;
+    cursor: not-allowed;
+}
+.mp-btn-tertiary:disabled, .mp-btn-secondary:disabled { background-color: transparent; }
