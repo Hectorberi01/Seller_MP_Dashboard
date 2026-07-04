@@ -25,6 +25,30 @@ else
         <span>@product.Name</span>
     </div>
 
+    @* Barre d'actions pleine largeur : tous les boutons sur une ligne, alignée
+       avec les sections en dessous. *@
+    <div class="detail-actions">
+        <MpButton Variant="ButtonVariant.Secondary" OnClick="@(() => Nav.NavigateTo("produits"))">← Retour</MpButton>
+        <MpButton Variant="ButtonVariant.Tertiary" Icon="eye" OnClick="@(() => Nav.NavigateTo($"produit/{Id}/apercu"))">Aperçu client</MpButton>
+        @if (product.Status == "Draft")
+        {
+            @* La publication (mise en vitrine) est validée par l'administration. *@
+            <MpBadge Variant="BadgeVariant.Neutral" Icon="●">En attente de validation</MpBadge>
+        }
+        @if (product.Status == "Active")
+        {
+            <MpButton Variant="ButtonVariant.Secondary" Icon="eye-off" OnClick="@(() => ChangeStatus("Draft"))">Retirer de la vente</MpButton>
+        }
+        @if (product.Status != "Archived")
+        {
+            <MpButton Variant="ButtonVariant.Tertiary" Icon="archive" OnClick="@(() => ChangeStatus("Archived"))">Archiver</MpButton>
+        }
+        <MpButton Variant="ButtonVariant.Primary" Icon="edit" OnClick="OpenEdit">Modifier</MpButton>
+        <MpButton Variant="ButtonVariant.Action" Icon="plus" OnClick="OpenOffer">Ajouter une offre</MpButton>
+        <MpButton Variant="ButtonVariant.Danger" Icon="trash" OnClick="DeleteProduct">Retirer</MpButton>
+    </div>
+    @if (_statusError is not null) { <p class="form-error">@_statusError</p> }
+
     <div class="detail-grid">
         <div class="gallery">
             <MpCard NoPadding="true">
@@ -73,7 +97,7 @@ else
                 </div>
             }
 
-            <MpCard Title="Gérer les images">
+            <MpCard Title="Gérer les images" Subtitle="Ajoutez les photos du produit, réordonnez-les et définissez la photo principale (celle vue en premier par les acheteurs).">
                 <ChildContent>
                     @if (_mediaError is not null) { <p class="form-error">@_mediaError</p> }
                     @if (product.Images.Count == 0)
@@ -92,13 +116,19 @@ else
                                     <span class="media-pos mp-num">@(idx + 1)</span>
                                     @if (img.IsPrimary) { <MpBadge Variant="BadgeVariant.Verified">Principale</MpBadge> }
                                     <div class="media-actions">
-                                        <button type="button" class="mini-btn" title="Monter" disabled="@(idx == 0)" @onclick="@(() => MoveImage(idx, -1))">↑</button>
-                                        <button type="button" class="mini-btn" title="Descendre" disabled="@(idx == product.Images.Count - 1)" @onclick="@(() => MoveImage(idx, 1))">↓</button>
+                                        <button type="button" class="mini-btn" title="Monter" disabled="@(idx == 0)" @onclick="@(() => MoveImage(idx, -1))">
+                                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+                                        </button>
+                                        <button type="button" class="mini-btn" title="Descendre" disabled="@(idx == product.Images.Count - 1)" @onclick="@(() => MoveImage(idx, 1))">
+                                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
+                                        </button>
                                         @if (!img.IsPrimary)
                                         {
-                                            <button type="button" class="mini-btn" title="Définir principale" @onclick="@(() => SetPrimary(img.Id))">★</button>
+                                            <button type="button" class="mini-btn" title="Définir principale" @onclick="@(() => SetPrimary(img.Id))">
+                                                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.1 8.3 22 9.3 17 14.1 18.2 21 12 17.8 5.8 21 7 14.1 2 9.3 8.9 8.3 12 2"/></svg>
+                                            </button>
                                         }
-                                        <button type="button" class="mini-btn danger" title="Supprimer" @onclick="@(() => RemoveImage(img.Id))">✕</button>
+                                        <button type="button" class="mini-btn danger" title="Supprimer" @onclick="@(() => RemoveImage(img.Id))"><AppIcon Name="trash" Size="14" /></button>
                                     </div>
                                 </div>
                             }
@@ -118,7 +148,7 @@ else
                 <h1>@product.Name</h1>
                 <MpBadge Variant="@StatusVariant(product.Status)">@StatusLabel(product.Status)</MpBadge>
             </div>
-            <MpCard Title="Description">
+            <MpCard Title="Description" Subtitle="Le texte descriptif présenté aux acheteurs. Utilisez « Modifier » (en haut) pour le compléter.">
                 <ChildContent>
                     @if (string.IsNullOrWhiteSpace(product.Description))
                     {
@@ -131,7 +161,7 @@ else
                 </ChildContent>
             </MpCard>
 
-            <MpCard Title="Informations">
+            <MpCard Title="Informations" Subtitle="Récapitulatif technique du produit : catégorie, marque, identifiants (GTIN/EAN) et nombre de photos.">
                 <ChildContent>
                     <dl class="spec-list">
                         @if (!string.IsNullOrWhiteSpace(product.Sku))
@@ -156,34 +186,14 @@ else
                 </div>
             }
 
-            <div class="detail-actions">
-                <MpButton Variant="ButtonVariant.Secondary" OnClick="@(() => Nav.NavigateTo("produits"))">← Retour</MpButton>
-                <MpButton Variant="ButtonVariant.Tertiary" Icon="👁" OnClick="@(() => Nav.NavigateTo($"produit/{Id}/apercu"))">Aperçu client</MpButton>
-                @if (product.Status == "Draft")
-                {
-                    <MpButton Variant="ButtonVariant.Action" Icon="✔" OnClick="@(() => ChangeStatus("Active"))">Publier</MpButton>
-                }
-                @if (product.Status == "Active")
-                {
-                    <MpButton Variant="ButtonVariant.Secondary" Icon="◼" OnClick="@(() => ChangeStatus("Draft"))">Dépublier</MpButton>
-                }
-                @if (product.Status != "Archived")
-                {
-                    <MpButton Variant="ButtonVariant.Tertiary" Icon="🗄" OnClick="@(() => ChangeStatus("Archived"))">Archiver</MpButton>
-                }
-                <MpButton Variant="ButtonVariant.Primary" Icon="✎" OnClick="OpenEdit">Modifier</MpButton>
-                <MpButton Variant="ButtonVariant.Action" Icon="＋" OnClick="OpenOffer">Ajouter une offre</MpButton>
-                <MpButton Variant="ButtonVariant.Danger" Icon="🗑" OnClick="DeleteProduct">Retirer</MpButton>
-            </div>
-            @if (_statusError is not null) { <p class="form-error">@_statusError</p> }
         </div>
     </div>
 
     <div class="section-gap"></div>
 
-    <MpCard Title="@($"Variantes ({product.Variants.Count})")">
+    <MpCard Title="@($"Variantes ({product.Variants.Count})")" Subtitle="Les déclinaisons du produit (taille, couleur…). Chaque variante a son propre SKU et son propre stock. Ajoutez-en si le produit existe en plusieurs versions.">
         <HeaderContent>
-            <MpButton Variant="ButtonVariant.Action" Icon="＋" OnClick="OpenVariant">Ajouter une variante</MpButton>
+            <MpButton Variant="ButtonVariant.Action" Icon="plus" OnClick="OpenVariant">Ajouter une variante</MpButton>
         </HeaderContent>
         <ChildContent>
             @if (product.Variants.Count == 0) { <p class="mp-caption">Aucune variante.</p> }
@@ -220,7 +230,7 @@ else
                     <label>SKU <span class="mp-caption">(généré, modifiable)</span></label>
                     <div class="sku-row">
                         <input class="mp-input" @bind="_variant.Sku" placeholder="Ex. CHAUS-A1B2" />
-                        <button type="button" class="sku-regen" title="Régénérer" @onclick="@(() => _variant.Sku = GenerateSku(product?.Name))">↻</button>
+                        <button type="button" class="sku-regen" title="Régénérer" @onclick="@(() => _variant.Sku = GenerateSku(product?.Name))"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></button>
                     </div>
                 </div>
                 <div class="mp-grid-2">
@@ -228,7 +238,7 @@ else
                         <label>Code-barres <span class="mp-caption">(EAN-13, généré)</span></label>
                         <div class="sku-row">
                             <input class="mp-input" @bind="_variant.Barcode" />
-                            <button type="button" class="sku-regen" title="Régénérer" @onclick="@(() => _variant.Barcode = GenerateBarcode())">↻</button>
+                            <button type="button" class="sku-regen" title="Régénérer" @onclick="@(() => _variant.Barcode = GenerateBarcode())"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></button>
                         </div>
                     </div>
                     <div class="mp-field"><label>Poids (g)</label><input class="mp-input" type="number" min="0" @bind="_variant.WeightGrams" /></div>
@@ -251,10 +261,10 @@ else
                         <div class="attr-row">
                             <input class="mp-input" placeholder="Taille" @bind="a.Key" />
                             <input class="mp-input" placeholder="42" @bind="a.Value" />
-                            <button type="button" class="mini-btn danger" @onclick="@(() => _variant.Attributes.Remove(a))">✕</button>
+                            <button type="button" class="mini-btn danger" title="Retirer" @onclick="@(() => _variant.Attributes.Remove(a))"><AppIcon Name="x" Size="14" /></button>
                         </div>
                     }
-                    <button type="button" class="sku-regen" @onclick="@(() => _variant.Attributes.Add(new ProductAttribute()))">＋ Ajouter un attribut</button>
+                    <button type="button" class="sku-regen sku-regen-txt" @onclick="@(() => _variant.Attributes.Add(new ProductAttribute()))"><AppIcon Name="plus" Size="14" /> Ajouter un attribut</button>
                 </div>
                 @if (_variantError is not null) { <p class="form-error">@_variantError</p> }
             </div>
@@ -267,7 +277,7 @@ else
 
     <div class="section-gap"></div>
 
-    <MpCard Title="Stock &amp; inventaire">
+    <MpCard Title="Stock &amp; inventaire" Subtitle="Suivez les quantités par lieu d'expédition. « Réceptionner » ajoute du stock entrant, « Ajuster ± » corrige une quantité (perte, inventaire), et « Seuil » déclenche l'alerte de réapprovisionnement.">
         <ChildContent>
             @if (product.Variants.Count == 0)
             {
@@ -305,7 +315,7 @@ else
                                         <td>
                                             <div class="thr-row">
                                                 <input class="mp-input qty" type="number" min="0" @bind="_thrVal[it.Id]" />
-                                                <button type="button" class="mini-btn" title="Définir le seuil" @onclick="@(() => SetThreshold(it.Id))">✓</button>
+                                                <button type="button" class="mini-btn" title="Définir le seuil" @onclick="@(() => SetThreshold(it.Id))"><AppIcon Name="check" Size="14" /></button>
                                             </div>
                                         </td>
                                         <td class="actions-col">
@@ -328,6 +338,7 @@ else
 
                     <div class="stock-add">
                         <span class="stock-add-title">Créer un article de stock</span>
+                        <p class="mp-caption stock-add-help">Reliez cette variante à un lieu d'expédition pour commencer à suivre son stock (quantité de départ + seuil d'alerte).</p>
                         <div class="mp-grid-3">
                             <div class="mp-field">
                                 <label>Lieu d'expédition</label>
@@ -348,7 +359,7 @@ else
                                 <input class="mp-input" type="number" min="0" @bind="_newStock.Threshold" />
                             </div>
                         </div>
-                        <MpButton Variant="ButtonVariant.Action" Icon="＋" OnClick="CreateStock">Créer l'article</MpButton>
+                        <MpButton Variant="ButtonVariant.Action" Icon="plus" OnClick="CreateStock">Créer l'article</MpButton>
                     </div>
                 }
             }
@@ -357,7 +368,7 @@ else
 
     <div class="section-gap"></div>
 
-    <MpCard Title="@($"Offres ({( _offers?.Count ?? 0)})")">
+    <MpCard Title="@($"Offres ({( _offers?.Count ?? 0)})")" Subtitle="Le prix de vente et l'état (neuf, occasion…) proposés aux acheteurs. Une offre « Active » rend le produit achetable ; sans offre active, il n'est pas vendu.">
         <ChildContent>
             @if (_offers is null) { <p class="mp-caption">Chargement…</p> }
             else if (_offers.Count == 0) { <p class="mp-caption">Aucune offre. Cliquez sur « Ajouter une offre ».</p> }
@@ -370,7 +381,12 @@ else
                         {
                             <tr>
                                 <td class="mp-num">@o.Sku</td>
-                                <td class="mp-num">@o.BasePriceAmount.ToString("N0") @o.Currency</td>
+                                <td class="mp-num">
+                                    <div class="price-cell">
+                                        <span class="price-main">@o.EffectiveProductPrice.ToString("N0") @o.Currency</span>
+                                        <span class="price-sub mp-caption">dont @o.EffectiveSellerPrice.ToString("N0") @o.Currency pour vous (prix vendeur)</span>
+                                    </div>
+                                </td>
                                 <td>@o.Condition</td>
                                 <td><MpBadge Variant="@(o.Status == "active" || o.Status == "Active" ? BadgeVariant.Verified : BadgeVariant.Neutral)">@o.Status</MpBadge></td>
                                 <td class="actions-col">
@@ -389,7 +405,7 @@ else
 
     <div class="section-gap"></div>
 
-    <MpCard Title="@($"Avis clients ({( _reviews?.Count ?? 0)})")">
+    <MpCard Title="@($"Avis clients ({( _reviews?.Count ?? 0)})")" Subtitle="Les avis laissés par les acheteurs. Vous pouvez y répondre publiquement ou signaler un avis inapproprié.">
         <ChildContent>
             @if (_reviews is null) { <p class="mp-caption">Chargement…</p> }
             else if (_reviews.Count == 0) { <p class="mp-caption">Aucun avis sur ce produit.</p> }
@@ -408,7 +424,7 @@ else
                                 }
                                 else
                                 {
-                                    <button type="button" class="flag-btn" title="Signaler un avis inapproprié" @onclick="@(() => FlagReview(r.Id))">⚑ Signaler</button>
+                                    <button type="button" class="flag-btn" title="Signaler un avis inapproprié" @onclick="@(() => FlagReview(r.Id))"><AppIcon Name="flag" Size="14" /> Signaler</button>
                                 }
                             </div>
                             <p class="review-body">@r.Body</p>
@@ -433,8 +449,16 @@ else
     <MpModal @bind-Visible="_showOfferEdit" Title="Modifier l'offre">
         <ChildContent>
             <div class="mp-form">
+                <div class="price-info">
+                    <span class="price-info-icon"><AppIcon Name="info" Size="16" /></span>
+                    <p class="price-info-text">
+                        Vous fixez votre <strong>prix vendeur</strong> (ce que vous recevez).
+                        La plateforme ajoute @CommissionPct de commission et @ProviderPct de frais provider.
+                        L'acheteur paie donc votre prix +@TotalPct.
+                    </p>
+                </div>
                 <div class="mp-grid-2">
-                    <div class="mp-field"><label>Prix</label><input class="mp-input" type="number" step="0.01" @bind="_offerEditPrice" /></div>
+                    <div class="mp-field"><label>Prix vendeur <span class="mp-caption">(ce que vous touchez)</span></label><input class="mp-input" type="number" step="0.01" @bind="_offerEditPrice" @bind:event="oninput" /></div>
                     <div class="mp-field">
                         <label>Devise</label>
                         <select class="mp-select" @bind="_offerEditCurrency">
@@ -442,6 +466,7 @@ else
                         </select>
                     </div>
                 </div>
+                @PricePreview(_offerEditPrice, _offerEditCurrency)
                 <div class="mp-field"><label>Délai de traitement (jours)</label><input class="mp-input" type="number" min="0" @bind="_offerEditHandling" /></div>
                 @if (_offerEditError is not null) { <p class="form-error">@_offerEditError</p> }
             </div>
@@ -480,10 +505,10 @@ else
                         <div class="attr-row">
                             <input class="mp-input" placeholder="Couleur" @bind="a.Key" />
                             <input class="mp-input" placeholder="Noir" @bind="a.Value" />
-                            <button type="button" class="mini-btn danger" @onclick="@(() => _edit.Attributes.Remove(a))">✕</button>
+                            <button type="button" class="mini-btn danger" title="Retirer" @onclick="@(() => _edit.Attributes.Remove(a))"><AppIcon Name="x" Size="14" /></button>
                         </div>
                     }
-                    <button type="button" class="sku-regen" @onclick="@(() => _edit.Attributes.Add(new ProductAttribute()))">＋ Ajouter un attribut</button>
+                    <button type="button" class="sku-regen sku-regen-txt" @onclick="@(() => _edit.Attributes.Add(new ProductAttribute()))"><AppIcon Name="plus" Size="14" /> Ajouter un attribut</button>
                 </div>
                 @if (_editError is not null) { <p class="form-error">@_editError</p> }
             </div>
@@ -497,15 +522,23 @@ else
     <MpModal @bind-Visible="_showOffer" Title="Ajouter une offre">
         <ChildContent>
             <div class="mp-form">
+                <div class="price-info">
+                    <span class="price-info-icon"><AppIcon Name="info" Size="16" /></span>
+                    <p class="price-info-text">
+                        Vous fixez votre <strong>prix vendeur</strong> (ce que vous recevez).
+                        La plateforme ajoute @CommissionPct de commission et @ProviderPct de frais provider.
+                        L'acheteur paie donc votre prix +@TotalPct.
+                    </p>
+                </div>
                 <div class="mp-field">
                     <label>SKU <span class="mp-caption">(généré, modifiable)</span></label>
                     <div class="sku-row">
                         <input class="mp-input" @bind="_offer.Sku" placeholder="Ex. CHAUS-A1B2" />
-                        <button type="button" class="sku-regen" title="Régénérer" @onclick="RegenerateSku">↻</button>
+                        <button type="button" class="sku-regen" title="Régénérer" @onclick="RegenerateSku"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></button>
                     </div>
                 </div>
                 <div class="mp-grid-2">
-                    <div class="mp-field"><label>Prix</label><input class="mp-input" type="number" step="0.01" @bind="_offer.Price" /></div>
+                    <div class="mp-field"><label>Prix vendeur <span class="mp-caption">(ce que vous touchez)</span></label><input class="mp-input" type="number" step="0.01" @bind="_offer.Price" @bind:event="oninput" /></div>
                     <div class="mp-field">
                         <label>Devise</label>
                         <select class="mp-select" @bind="_offer.Currency">
@@ -516,6 +549,7 @@ else
                         </select>
                     </div>
                 </div>
+                @PricePreview(_offer.Price, _offer.Currency)
                 <div class="mp-grid-2">
                     <div class="mp-field">
                         <label>Condition</label>
@@ -573,7 +607,10 @@ else
 
     .detail-grid {
         display: grid;
-        grid-template-columns: 360px 1fr;
+        /* minmax(0, 1fr) : empêche la colonne de droite de déborder au-delà de la
+           largeur du contenu (la barre d'actions en « nowrap » la faisait gonfler),
+           pour que la rangée du haut reste alignée avec les cartes en dessous. */
+        grid-template-columns: 360px minmax(0, 1fr);
         gap: var(--mp-space-6);
         align-items: start;
     }
@@ -654,14 +691,17 @@ else
     .spec-list dd { margin: 0; font-weight: 500; }
 
     .detail-actions {
-        display: flex; gap: var(--mp-space-2); flex-wrap: wrap; align-items: center;
-        margin-top: var(--mp-space-2);
+        display: flex; gap: var(--mp-space-2); flex-wrap: nowrap; align-items: center;
+        margin: var(--mp-space-2) 0 var(--mp-space-4);
         padding: var(--mp-space-3);
         background: var(--mp-surface, #fff);
         border: 1px solid var(--mp-border);
         border-radius: var(--mp-radius-md, 10px);
         box-shadow: 0 1px 2px rgba(0,0,0,.04);
+        overflow-x: auto;            /* une seule ligne ; défilement si l'écran est étroit */
     }
+    /* Les boutons/badges gardent leur taille (pas de compression) et ne reviennent pas à la ligne. */
+    .detail-actions > * { flex: 0 0 auto; white-space: nowrap; }
 
     .tag-row { display: flex; flex-wrap: wrap; gap: var(--mp-space-2); }
     .tag-chip { background: var(--mp-surface-2, #eef2f7); border-radius: 999px; padding: 2px 10px; font-size: 12px; }
@@ -673,8 +713,41 @@ else
     .form-error { color: var(--mp-danger, #c0392b); font-size: 13px; }
     .sku-row { display: flex; gap: var(--mp-space-2); align-items: stretch; }
     .sku-row .mp-input { flex: 1; }
-    .sku-regen { border: 1px solid var(--mp-border); background: var(--mp-surface); border-radius: var(--mp-radius-md); cursor: pointer; padding: 0 12px; font-size: 16px; }
-    .sku-regen:hover { border-color: var(--mp-primary); }
+    .sku-regen { display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid var(--mp-border); background: var(--mp-surface); border-radius: var(--mp-radius-md); cursor: pointer; padding: 0 12px; font-size: 16px; color: var(--mp-text); }
+    .sku-regen:hover { border-color: var(--mp-primary); color: var(--mp-primary); }
+    .sku-regen-txt { align-self: flex-start; padding: 6px 12px; font-size: 13px; font-weight: 500; }
+
+    /* --- Aperçu tarification (modale d'offre) --- */
+    .price-info {
+        display: flex; gap: var(--mp-space-2); align-items: flex-start;
+        background: var(--mp-primary-light, #eef3fb);
+        border: 1px solid var(--mp-primary-200, var(--mp-border));
+        border-radius: var(--mp-radius-md);
+        padding: var(--mp-space-3);
+    }
+    .price-info-icon { color: var(--mp-primary, #1d4ed8); flex: 0 0 auto; margin-top: 1px; }
+    .price-info-text { margin: 0; font-size: 13px; color: var(--mp-text); line-height: 1.45; }
+    .price-preview {
+        display: flex; flex-direction: column;
+        border: 1px solid var(--mp-border);
+        border-radius: var(--mp-radius-lg);
+        padding: var(--mp-space-3) var(--mp-space-4);
+        background: var(--mp-surface-2, #f7f9fc);
+    }
+    .pp-row { display: flex; align-items: baseline; justify-content: space-between; gap: var(--mp-space-4); padding: 4px 0; font-size: 14px; }
+    .pp-row > span:first-child { color: var(--mp-text-muted); }
+    .pp-add > span:last-child { color: var(--mp-text-muted); }
+    .pp-total {
+        margin-top: 4px; padding-top: var(--mp-space-2);
+        border-top: 1px solid var(--mp-border);
+        font-weight: 700;
+    }
+    .pp-total > span:first-child { color: var(--mp-text); }
+    .pp-total > span:last-child { color: var(--mp-primary-dark, #11324d); font-size: 16px; }
+
+    .price-cell { display: flex; flex-direction: column; gap: 1px; }
+    .price-main { font-weight: 600; }
+    .price-sub { font-weight: 400; }
 
     .section-gap { height: var(--mp-space-4); }
     .row-actions { display: flex; gap: var(--mp-space-2); }
@@ -686,10 +759,10 @@ else
     .media-mini { width: 40px; height: 40px; object-fit: cover; border-radius: 6px; }
     .media-pos { width: 20px; color: var(--mp-text-muted); }
     .media-actions { display: flex; gap: 4px; margin-left: auto; }
-    .mini-btn { border: 1px solid var(--mp-border); background: var(--mp-surface); border-radius: 6px; cursor: pointer; width: 28px; height: 28px; font-size: 13px; }
+    .mini-btn { display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--mp-border); background: var(--mp-surface); border-radius: 6px; cursor: pointer; width: 28px; height: 28px; font-size: 13px; color: var(--mp-text); }
     .mini-btn:hover:not(:disabled) { border-color: var(--mp-primary); }
     .mini-btn:disabled { opacity: .4; cursor: default; }
-    .mini-btn.danger:hover { border-color: var(--mp-rupture, #c0392b); color: var(--mp-rupture, #c0392b); }
+    .mini-btn.danger:hover { border-color: var(--mp-danger); color: var(--mp-danger); }
     .add-img { display: flex; flex-direction: column; gap: 6px; margin-top: var(--mp-space-2); }
     .add-img input[type=file] { font-size: 13px; color: var(--mp-text-muted); }
     .add-img input[type=file]::file-selector-button {
@@ -699,6 +772,7 @@ else
     }
     .add-img input[type=file]::file-selector-button:hover { filter: brightness(1.08); }
     .stock-add-title { font-weight: 600; font-size: 14px; }
+    .stock-add-help { margin: 4px 0 var(--mp-space-3); }
     .review-list { display: flex; flex-direction: column; gap: var(--mp-space-3); }
     .review-row { border-bottom: 0.5px solid var(--mp-border); padding-bottom: var(--mp-space-3); }
     .review-head { display: flex; align-items: baseline; gap: var(--mp-space-2); }
@@ -710,10 +784,12 @@ else
     .stock-sku { max-width: 360px; margin-bottom: var(--mp-space-3); }
     .stock-recv, .thr-row { display: flex; gap: 6px; align-items: center; }
     .thr-row { justify-content: flex-start; }
-    .mp-input.qty { width: 70px; }
-    .stock-ops { display: flex; flex-direction: column; gap: 4px; align-items: flex-end; }
-    .flag-btn { border: none; background: none; cursor: pointer; color: var(--mp-text-muted, #888); font-size: 12px; padding: 0; }
-    .flag-btn:hover { color: var(--mp-rupture, #c0392b); }
+    .mp-input.qty { width: 58px; }
+    /* Réceptionner + Ajuster sur une seule ligne (côte à côte), alignés à droite. */
+    .stock-ops { display: flex; flex-direction: row; flex-wrap: nowrap; gap: var(--mp-space-3); align-items: center; justify-content: flex-end; }
+    .stock-ops .stock-recv { flex: 0 0 auto; }
+    .flag-btn { border: none; background: none; cursor: pointer; color: var(--mp-text-muted, #888); font-size: 12px; padding: 0; display: inline-flex; align-items: center; gap: 4px; }
+    .flag-btn:hover { color: var(--mp-danger); }
     .stock-add { margin-top: var(--mp-space-4); display: flex; flex-direction: column; gap: var(--mp-space-2); }
     .mp-grid-3 { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: var(--mp-space-2); }
 
@@ -916,7 +992,8 @@ else
     private void OpenEditOffer(Offer o)
     {
         _offerEditId = o.Id;
-        _offerEditPrice = _offerEditPriceInitial = o.BasePriceAmount;
+        // On édite le PRIX VENDEUR (net) ; le BFF l'interprète comme tel.
+        _offerEditPrice = _offerEditPriceInitial = Math.Round(o.EffectiveSellerPrice, 2);
         _offerEditCurrency = _offerEditCurrencyInitial = o.Currency;
         _offerEditHandling = _offerEditHandlingInitial = o.HandlingTime;
         _offerEditError = null;
@@ -1184,6 +1261,51 @@ else
     }
 
     private void RegenerateSku() => _offer.Sku = GenerateSku(product?.Name);
+
+    // ---------- Aperçu de tarification (prix vendeur → prix acheteur) ----------
+    // Constantes alignées sur la config backend (10% commission + 5% frais provider).
+    private static string CommissionPct => $"{OfferPricing.CommissionRate * 100:0}%";
+    private static string ProviderPct => $"{OfferPricing.ProviderFeeRate * 100:0}%";
+    private static string TotalPct => $"{(OfferPricing.CommissionRate + OfferPricing.ProviderFeeRate) * 100:0}%";
+
+    /// <summary>Aperçu EN DIRECT du calcul : prix vendeur → commission → frais → prix acheteur.</summary>
+    private RenderFragment PricePreview(double sellerPrice, string currency) => builder =>
+    {
+        var seller = sellerPrice > 0 ? sellerPrice : 0;
+        var commission = OfferPricing.Commission(seller);
+        var providerFee = OfferPricing.ProviderFee(seller);
+        var productPrice = OfferPricing.ProductPrice(seller);
+        var cur = string.IsNullOrWhiteSpace(currency) ? "XOF" : currency;
+
+        builder.OpenElement(0, "div");
+        builder.AddAttribute(1, "class", "price-preview");
+
+        builder.OpenElement(2, "div");
+        builder.AddAttribute(3, "class", "pp-row");
+        builder.OpenElement(4, "span"); builder.AddContent(5, "Prix vendeur (ce que vous touchez)"); builder.CloseElement();
+        builder.OpenElement(6, "span"); builder.AddAttribute(7, "class", "mp-num"); builder.AddContent(8, $"{seller:N0} {cur}"); builder.CloseElement();
+        builder.CloseElement();
+
+        builder.OpenElement(9, "div");
+        builder.AddAttribute(10, "class", "pp-row pp-add");
+        builder.OpenElement(11, "span"); builder.AddContent(12, $"Commission plateforme ({CommissionPct})"); builder.CloseElement();
+        builder.OpenElement(13, "span"); builder.AddAttribute(14, "class", "mp-num"); builder.AddContent(15, $"+{commission:N0} {cur}"); builder.CloseElement();
+        builder.CloseElement();
+
+        builder.OpenElement(16, "div");
+        builder.AddAttribute(17, "class", "pp-row pp-add");
+        builder.OpenElement(18, "span"); builder.AddContent(19, $"Frais provider ({ProviderPct})"); builder.CloseElement();
+        builder.OpenElement(20, "span"); builder.AddAttribute(21, "class", "mp-num"); builder.AddContent(22, $"+{providerFee:N0} {cur}"); builder.CloseElement();
+        builder.CloseElement();
+
+        builder.OpenElement(23, "div");
+        builder.AddAttribute(24, "class", "pp-row pp-total");
+        builder.OpenElement(25, "span"); builder.AddContent(26, "Prix payé par l'acheteur"); builder.CloseElement();
+        builder.OpenElement(27, "span"); builder.AddAttribute(28, "class", "mp-num"); builder.AddContent(29, $"{productPrice:N0} {cur}"); builder.CloseElement();
+        builder.CloseElement();
+
+        builder.CloseElement();
+    };
 
     /// <summary>SKU auto : préfixe alphanumérique du nom (max 6) + suffixe aléatoire de 4.</summary>
     private static string GenerateSku(string? name)

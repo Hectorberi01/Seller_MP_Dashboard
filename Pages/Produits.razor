@@ -5,7 +5,7 @@
 <PageHeader Title="Produits"
             Subtitle="@($"{(_products?.Count ?? 0)} références dans votre catalogue")">
     <Actions>
-        <MpButton Variant="ButtonVariant.Primary" Icon="＋" OnClick="@(() => _showCreate = true)">Ajouter un produit</MpButton>
+        <MpButton Variant="ButtonVariant.Primary" Icon="plus" OnClick="@(() => _showCreate = true)">Ajouter un produit</MpButton>
     </Actions>
 </PageHeader>
 
@@ -84,10 +84,10 @@
                     <div class="attr-row">
                         <input class="mp-input" placeholder="Couleur" @bind="attr.Key" />
                         <input class="mp-input" placeholder="Noir" @bind="attr.Value" />
-                        <button type="button" class="attr-x" title="Retirer" @onclick="@(() => _form.Attributes.Remove(attr))">✕</button>
+                        <button type="button" class="attr-x" title="Retirer" @onclick="@(() => _form.Attributes.Remove(attr))"><AppIcon Name="x" Size="14" /></button>
                     </div>
                 }
-                <button type="button" class="attr-add" @onclick="@(() => _form.Attributes.Add(new ProductAttribute()))">＋ Ajouter un attribut</button>
+                <button type="button" class="attr-add" @onclick="@(() => _form.Attributes.Add(new ProductAttribute()))"><AppIcon Name="plus" Size="14" /> Ajouter un attribut</button>
             </div>
 
             <div class="mp-field">
@@ -104,9 +104,9 @@
                                 <img src="@img.DataUrl" alt="@img.FileName" />
                                 @if (idx != 0)
                                 {
-                                    <button type="button" class="thumb-star" title="Définir comme principale" @onclick="@(() => SetPrimary(idx))">★</button>
+                                    <button type="button" class="thumb-star" title="Définir comme principale" @onclick="@(() => SetPrimary(idx))"><svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" stroke="none"><polygon points="12 2 15.1 8.3 22 9.3 17 14.1 18.2 21 12 17.8 5.8 21 7 14.1 2 9.3 8.9 8.3 12 2"/></svg></button>
                                 }
-                                <button type="button" class="thumb-x" title="Retirer" @onclick="@(() => RemoveImage(idx))">✕</button>
+                                <button type="button" class="thumb-x" title="Retirer" @onclick="@(() => RemoveImage(idx))"><AppIcon Name="x" Size="12" /></button>
                             </div>
                         }
                     </div>
@@ -125,11 +125,36 @@
     </Footer>
 </MpModal>
 
+@* --- Confirmation de suppression --- *@
+<MpModal Visible="_deleteTarget is not null" VisibleChanged="@((bool v) => { if (!v) _deleteTarget = null; })" Title="">
+    <ChildContent>
+        <div class="del-confirm">
+            <div class="del-ico"><AppIcon Name="trash" Size="28" /></div>
+            <h3 class="del-title">Supprimer le produit ?</h3>
+            <p class="del-text">
+                Cette action est irréversible. Le produit
+                <strong>« @(_deleteTarget?.Name) »</strong> sera définitivement retiré du marché.
+            </p>
+            @if (_deleteError is not null) { <p class="form-error">@_deleteError</p> }
+        </div>
+    </ChildContent>
+    <Footer>
+        <MpButton Variant="ButtonVariant.Secondary" Disabled="@_deleting" OnClick="@(() => _deleteTarget = null)">Garder</MpButton>
+        <MpButton Variant="ButtonVariant.Danger" Disabled="@_deleting" OnClick="ConfirmDelete">
+            @(_deleting ? "Suppression…" : "Oui, supprimer")
+        </MpButton>
+    </Footer>
+</MpModal>
+
 <style>
+    .del-confirm { text-align: center; display: flex; flex-direction: column; align-items: center; gap: var(--mp-space-3); padding: var(--mp-space-2) var(--mp-space-2) 0; }
+    .del-ico { width: 64px; height: 64px; border-radius: 50%; background-color: var(--mp-badge-rupture-bg); color: var(--mp-danger); display: flex; align-items: center; justify-content: center; font-size: 28px; }
+    .del-title { font-size: 20px; font-weight: 800; margin: 0; color: var(--mp-text); }
+    .del-text { color: var(--mp-text-muted); line-height: 1.5; margin: 0; max-width: 360px; }
     .mp-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--mp-space-3); }
     .attr-row { display: grid; grid-template-columns: 1fr 1fr auto; gap: var(--mp-space-2); margin-bottom: var(--mp-space-2); align-items: center; }
-    .attr-x { border: none; background: none; cursor: pointer; color: var(--mp-text-muted, #888); font-size: .85rem; }
-    .attr-add { border: 1px dashed var(--mp-border); background: none; cursor: pointer; padding: var(--mp-space-2); border-radius: 6px; font-size: .85rem; color: var(--mp-primary, #1d4ed8); }
+    .attr-x { border: none; background: none; cursor: pointer; color: var(--mp-text-muted, #888); font-size: .85rem; display: inline-flex; align-items: center; justify-content: center; }
+    .attr-add { border: 1px dashed var(--mp-border); background: none; cursor: pointer; padding: var(--mp-space-2); border-radius: 6px; font-size: .85rem; color: var(--mp-primary, #1d4ed8); display: inline-flex; align-items: center; gap: 6px; }
 </style>
 
 @if (_loadError is not null)
@@ -143,18 +168,20 @@ else if (_products is null)
 else
 {
     <div class="filter-bar">
-        <button class="chip @(_filter is null ? "chip-active" : null)" @onclick="@(() => _filter = null)">
+        <button class="chip @(_filter is null ? "chip-active" : null)" @onclick="@(() => SetStockFilter(null))">
             Tous (@_products.Count)
         </button>
-        <button class="chip @(_filter == StockStatus.InStock ? "chip-active" : null)" @onclick="@(() => _filter = StockStatus.InStock)">
+        <button class="chip @(_filter == StockStatus.InStock ? "chip-active" : null)" @onclick="@(() => SetStockFilter(StockStatus.InStock))">
             En stock (@_products.Count(p => p.StockStatus == StockStatus.InStock))
         </button>
-        <button class="chip @(_filter == StockStatus.LowStock ? "chip-active" : null)" @onclick="@(() => _filter = StockStatus.LowStock)">
+        <button class="chip @(_filter == StockStatus.LowStock ? "chip-active" : null)" @onclick="@(() => SetStockFilter(StockStatus.LowStock))">
             Stock faible (@_products.Count(p => p.StockStatus == StockStatus.LowStock))
         </button>
-        <button class="chip @(_filter == StockStatus.OutOfStock ? "chip-active" : null)" @onclick="@(() => _filter = StockStatus.OutOfStock)">
+        <button class="chip @(_filter == StockStatus.OutOfStock ? "chip-active" : null)" @onclick="@(() => SetStockFilter(StockStatus.OutOfStock))">
             Rupture (@_products.Count(p => p.StockStatus == StockStatus.OutOfStock))
         </button>
+        <input class="mp-input prod-search" placeholder="Rechercher un nom ou un SKU…"
+               value="@_search" @oninput="OnSearchChanged" />
     </div>
 
     <MpCard NoPadding="true">
@@ -172,7 +199,7 @@ else
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var p in Filtered)
+                    @foreach (var p in Paged)
                     {
                         <tr>
                             <td>
@@ -200,7 +227,7 @@ else
                             <td class="num mp-num">@p.UnitsSold</td>
                             <td class="actions-col">
                                 <MpButton Variant="ButtonVariant.Tertiary" OnClick="@(() => Nav.NavigateTo($"produit/{p.Id}"))">Détail</MpButton>
-                                <MpButton Variant="ButtonVariant.Tertiary" OnClick="@(() => DeleteProduct(p))">Supprimer</MpButton>
+                                <MpButton Variant="ButtonVariant.Tertiary" OnClick="@(() => AskDelete(p))">Supprimer</MpButton>
                             </td>
                         </tr>
                     }
@@ -208,8 +235,25 @@ else
             </table>
             @if (!Filtered.Any())
             {
-                <div class="empty-state">Aucun produit dans cette catégorie.</div>
+                <div class="empty-state">Aucun produit ne correspond à votre recherche.</div>
             }
         </ChildContent>
     </MpCard>
+
+    @if (PageCount > 1)
+    {
+        <div class="prod-pager">
+            <button class="prod-page-btn" type="button" disabled="@(_page <= 1)" @onclick="PrevPage">Précédent</button>
+            <span class="mp-caption">Page @_page / @PageCount</span>
+            <button class="prod-page-btn" type="button" disabled="@(_page >= PageCount)" @onclick="NextPage">Suivant</button>
+        </div>
+    }
 }
+
+<style>
+    .prod-search { flex: 1 1 220px; max-width: 320px; margin-left: auto; }
+    .prod-pager { display: flex; align-items: center; justify-content: center; gap: var(--mp-space-4); margin-top: var(--mp-space-4); }
+    .prod-page-btn { border: 0.5px solid var(--mp-border); background: var(--mp-surface); border-radius: var(--mp-radius-md); padding: 6px 16px; font-size: 13px; cursor: pointer; color: var(--mp-text); }
+    .prod-page-btn:hover:not(:disabled) { border-color: var(--mp-primary); color: var(--mp-primary); }
+    .prod-page-btn:disabled { opacity: .5; cursor: default; }
+</style>

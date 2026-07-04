@@ -6,10 +6,9 @@ using Seller_MP_Dashboard.Models;
 namespace Seller_MP_Dashboard.Api;
 
 /// <summary>
-/// Implémentation HTTP réelle du BFF Vendeur. Chaque méthode mappe une route
-/// de l'OpenAPI. NON enregistrée pour l'instant (l'app tourne sur MockSellerApi) :
-/// pour la câbler, remplacer l'enregistrement DI dans Program.cs et configurer
-/// le HttpClient « SellerBff » (BaseAddress + jeton d'auth).
+/// Implémentation HTTP du BFF Vendeur (seule implémentation de <see cref="ISellerApi"/>).
+/// Chaque méthode mappe une route de l'OpenAPI. Le HttpClient est configuré dans
+/// Program.cs (BaseAddress = Api:BaseUrl + BearerAuthHandler pour le jeton).
 /// </summary>
 public partial class HttpSellerApi : ISellerApi
 {
@@ -117,6 +116,33 @@ public partial class HttpSellerApi : ISellerApi
         var resp = await _http.PostAsync("/seller/shop/kyb-documents/upload", form);
         resp.EnsureSuccessStatusCode();
     }
+
+    public async Task<string?> GetKybDownloadUrlAsync(Guid documentId)
+    {
+        var resp = await _http.GetFromJsonAsync<DownloadUrlResponse>($"/seller/shop/kyb-documents/{documentId}/download");
+        return resp?.Url;
+    }
+
+    public async Task DeleteKybDocumentAsync(Guid documentId)
+    {
+        var resp = await _http.DeleteAsync($"/seller/shop/kyb-documents/{documentId}");
+        resp.EnsureSuccessStatusCode();
+    }
+
+    public async Task<string?> SetShopLogoAsync(string fileName, string contentType, byte[] content)
+    {
+        using var form = new MultipartFormDataContent();
+        var file = new ByteArrayContent(content);
+        file.Headers.ContentType = new MediaTypeHeaderValue(string.IsNullOrEmpty(contentType) ? "image/png" : contentType);
+        form.Add(file, "file", fileName);
+        var resp = await _http.PostAsync("/seller/shop/logo", form);
+        resp.EnsureSuccessStatusCode();
+        var body = await resp.Content.ReadFromJsonAsync<LogoUrlResponse>();
+        return body?.LogoUrl;
+    }
+
+    private sealed record DownloadUrlResponse(string Url);
+    private sealed record LogoUrlResponse(string LogoUrl);
 
     // ---------- Catalogue ----------
     public async Task<IReadOnlyList<SellerCategory>> ListCategoriesAsync()
@@ -229,11 +255,21 @@ public partial class HttpSellerApi : ISellerApi
     // ---------- Finances ----------
     public async Task<FinanceStatement> GetStatementAsync(DateTime? from = null, DateTime? to = null)
     {
+        // Format « s » (yyyy-MM-ddTHH:mm:ss, invariant, sans fuseau) + encodage URL
+        // des « : » : garantit un binding DateTime? fiable côté BFF.
         var q = new List<string>();
-        if (from is not null) q.Add($"from={from:O}");
-        if (to is not null) q.Add($"to={to:O}");
+        if (from is not null) q.Add($"from={Uri.EscapeDataString(from.Value.ToString("s"))}");
+        if (to is not null) q.Add($"to={Uri.EscapeDataString(to.Value.ToString("s"))}");
         var url = "/seller/finance/statement" + (q.Count > 0 ? "?" + string.Join("&", q) : "");
-        return (await _http.GetFromJsonAsync<FinanceStatement>(url))!;
+
+        var resp = await _http.GetAsync(url);
+        if (!resp.IsSuccessStatusCode)
+        {
+            // Remonte le corps de la réponse (ex. { "error": "invalid_period" }) pour diagnostic.
+            var body = await resp.Content.ReadAsStringAsync();
+            throw new HttpRequestException($"HTTP {(int)resp.StatusCode} — {body}", null, resp.StatusCode);
+        }
+        return (await resp.Content.ReadFromJsonAsync<FinanceStatement>())!;
     }
 
     public async Task<IReadOnlyList<Payout>> ListPayoutsAsync()

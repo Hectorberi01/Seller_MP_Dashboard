@@ -6,7 +6,7 @@
         @onclick="OnClick">
     @if (!string.IsNullOrEmpty(Icon))
     {
-        <span class="mp-btn-icon" aria-hidden="true">@Icon</span>
+        <span class="mp-btn-icon" aria-hidden="true"><AppIcon Name="@Icon" Size="16" /></span>
     }
     @ChildContent
 </button>

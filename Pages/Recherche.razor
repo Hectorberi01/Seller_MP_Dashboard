@@ -1,0 +1,313 @@
+@page "/recherche"
+@inject ISellerApi Api
+@inject NavigationManager Nav
+
+<PageTitle>Recherche — Espace Vendeur</PageTitle>
+
+<PageHeader Title="Recherche"
+            Subtitle="Retrouvez rapidement vos produits et vos commandes." />
+
+<MpCard>
+    <div class="rch-bar">
+        <span class="rch-bar-ico" aria-hidden="true">
+            <AppIcon Name="store" Size="18" />
+        </span>
+        <input class="mp-input rch-input" type="search"
+               placeholder="Nom, SKU, référence de commande, client…"
+               aria-label="Affiner la recherche"
+               @bind="_term" @bind:event="oninput"
+               @onkeydown="OnKeyDown" />
+        <button type="button" class="rch-go" @onclick="Submit">Rechercher</button>
+    </div>
+</MpCard>
+
+@if (string.IsNullOrWhiteSpace(Q))
+{
+    <div class="rch-state">
+        <div class="rch-state-ico"><AppIcon Name="store" Size="40" StrokeWidth="1.5" /></div>
+        <p class="mp-body-strong">Saisissez un terme de recherche</p>
+        <p class="mp-caption">Recherchez par nom ou SKU de produit, ou par référence / client de commande.</p>
+    </div>
+}
+else if (_loading)
+{
+    <p class="mp-caption">Chargement…</p>
+}
+else if (_loadError is not null)
+{
+    <ErrorNotice Title="Recherche indisponible" Message="@_loadError" OnRetry="RunSearch" />
+}
+else if (_products.Count == 0 && _orders.Count == 0 && _returns.Count == 0)
+{
+    <div class="rch-state">
+        <div class="rch-state-ico"><AppIcon Name="package" Size="40" StrokeWidth="1.5" /></div>
+        <p class="mp-body-strong">Aucun résultat pour « @Q »</p>
+        <p class="mp-caption">Vérifiez l'orthographe ou essayez un autre terme.</p>
+    </div>
+}
+else
+{
+    <div class="rch-sections">
+        <MpCard>
+            <div class="rch-sec-head">
+                <span class="rch-sec-ico"><AppIcon Name="package" Size="18" /></span>
+                <h3 class="rch-sec-title">Produits (@_products.Count)</h3>
+            </div>
+
+            @if (_products.Count == 0)
+            {
+                <p class="mp-caption rch-none">Aucun produit correspondant.</p>
+            }
+            else
+            {
+                <div class="rch-list">
+                    @foreach (var p in _products.Take(MaxPerSection))
+                    {
+                        <a class="rch-item" href="produit/@p.Id">
+                            <span class="rch-thumb">
+                                @if (!string.IsNullOrEmpty(p.PrimaryImage?.Url))
+                                {
+                                    <img src="@p.PrimaryImage!.Url" alt="@p.Name" />
+                                }
+                                else
+                                {
+                                    <span class="rch-thumb-emoji">@p.Emoji</span>
+                                }
+                            </span>
+                            <span class="rch-item-body">
+                                <span class="rch-item-title">@p.Name</span>
+                                <span class="rch-item-sub">@(string.IsNullOrWhiteSpace(p.Sku) ? "—" : p.Sku)</span>
+                            </span>
+                            @if (p.PriceXof > 0)
+                            {
+                                <span class="rch-item-amount">@Format.Xof(p.PriceXof)</span>
+                            }
+                        </a>
+                    }
+                </div>
+                @if (_products.Count > MaxPerSection)
+                {
+                    <p class="mp-caption rch-more">@(_products.Count - MaxPerSection) autre@(_products.Count - MaxPerSection > 1 ? "s" : "") produit@(_products.Count - MaxPerSection > 1 ? "s" : "") non affiché@(_products.Count - MaxPerSection > 1 ? "s" : "").</p>
+                }
+            }
+        </MpCard>
+
+        <MpCard>
+            <div class="rch-sec-head">
+                <span class="rch-sec-ico"><AppIcon Name="shopping-cart" Size="18" /></span>
+                <h3 class="rch-sec-title">Commandes (@_orders.Count)</h3>
+            </div>
+
+            @if (_orders.Count == 0)
+            {
+                <p class="mp-caption rch-none">Aucune commande correspondante.</p>
+            }
+            else
+            {
+                <div class="rch-list">
+                    @foreach (var o in _orders.Take(MaxPerSection))
+                    {
+                        <a class="rch-item" href="commande/@o.Id">
+                            <span class="rch-thumb rch-thumb-ico"><AppIcon Name="receipt" Size="20" /></span>
+                            <span class="rch-item-body">
+                                <span class="rch-item-title">@o.Reference</span>
+                                <span class="rch-item-sub">@o.Customer</span>
+                            </span>
+                            <span class="rch-item-amount">@Format.Xof(o.TotalXof)</span>
+                        </a>
+                    }
+                </div>
+                @if (_orders.Count > MaxPerSection)
+                {
+                    <p class="mp-caption rch-more">@(_orders.Count - MaxPerSection) autre@(_orders.Count - MaxPerSection > 1 ? "s" : "") commande@(_orders.Count - MaxPerSection > 1 ? "s" : "") non affichée@(_orders.Count - MaxPerSection > 1 ? "s" : "").</p>
+                }
+            }
+        </MpCard>
+
+        <MpCard>
+            <div class="rch-sec-head">
+                <span class="rch-sec-ico"><AppIcon Name="archive" Size="18" /></span>
+                <h3 class="rch-sec-title">Retours (@_returns.Count)</h3>
+            </div>
+
+            @if (_returns.Count == 0)
+            {
+                <p class="mp-caption rch-none">Aucun retour correspondant.</p>
+            }
+            else
+            {
+                <div class="rch-list">
+                    @foreach (var r in _returns.Take(MaxPerSection))
+                    {
+                        <a class="rch-item" href="commande/@r.OrderId">
+                            <span class="rch-thumb rch-thumb-ico"><AppIcon Name="archive" Size="20" /></span>
+                            <span class="rch-item-body">
+                                <span class="rch-item-title">@r.OrderReference</span>
+                                <span class="rch-item-sub">@r.Customer@(string.IsNullOrWhiteSpace(r.Reason) ? "" : $" · {r.Reason}")</span>
+                            </span>
+                            @if (r.AmountXof > 0)
+                            {
+                                <span class="rch-item-amount">@Format.Xof(r.AmountXof)</span>
+                            }
+                        </a>
+                    }
+                </div>
+                @if (_returns.Count > MaxPerSection)
+                {
+                    <p class="mp-caption rch-more">@(_returns.Count - MaxPerSection) autre@(_returns.Count - MaxPerSection > 1 ? "s" : "") retour@(_returns.Count - MaxPerSection > 1 ? "s" : "") non affiché@(_returns.Count - MaxPerSection > 1 ? "s" : "").</p>
+                }
+            }
+        </MpCard>
+    </div>
+}
+
+<style>
+    .rch-bar { display: flex; align-items: center; gap: var(--mp-space-3); }
+    .rch-bar-ico { color: var(--mp-text-muted); display: inline-flex; }
+    .rch-input { flex: 1 1 auto; }
+    .rch-go {
+        border: 0.5px solid var(--mp-primary); background-color: var(--mp-primary); color: #fff;
+        border-radius: var(--mp-radius-md); padding: 8px 16px; font-size: 14px; font-weight: 600; cursor: pointer;
+        white-space: nowrap; transition: opacity .15s ease;
+    }
+    .rch-go:hover { opacity: .9; }
+
+    .rch-state {
+        text-align: center; padding: var(--mp-space-8) var(--mp-space-4); margin-top: var(--mp-space-4);
+        border: 1px dashed var(--mp-border); border-radius: var(--mp-radius-lg);
+        display: flex; flex-direction: column; gap: var(--mp-space-2); align-items: center;
+    }
+    .rch-state-ico { color: var(--mp-text-muted); }
+
+    .rch-sections { display: flex; flex-direction: column; gap: var(--mp-space-4); margin-top: var(--mp-space-4); }
+    .rch-sec-head { display: flex; align-items: center; gap: var(--mp-space-2); margin-bottom: var(--mp-space-3); }
+    .rch-sec-ico { color: var(--mp-primary); display: inline-flex; }
+    .rch-sec-title { margin: 0; font-size: 15px; font-weight: 700; color: var(--mp-primary-dark); }
+    .rch-none { margin: 0; }
+    .rch-more { margin: var(--mp-space-3) 0 0; }
+
+    .rch-list { display: flex; flex-direction: column; }
+    .rch-item {
+        display: flex; align-items: center; gap: var(--mp-space-3);
+        padding: var(--mp-space-3) var(--mp-space-2); text-decoration: none; color: inherit;
+        border-radius: var(--mp-radius-md); transition: background-color .12s ease;
+    }
+    .rch-item + .rch-item { border-top: 0.5px solid var(--mp-border); }
+    .rch-item:hover { background-color: var(--mp-surface-2); text-decoration: none; }
+    .rch-thumb {
+        flex: 0 0 auto; width: 44px; height: 44px; border-radius: var(--mp-radius-md);
+        background-color: var(--mp-surface-2); overflow: hidden;
+        display: flex; align-items: center; justify-content: center;
+    }
+    .rch-thumb img { width: 100%; height: 100%; object-fit: cover; }
+    .rch-thumb-emoji { font-size: 24px; }
+    .rch-thumb-ico { color: var(--mp-primary); }
+    .rch-item-body { flex: 1 1 auto; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .rch-item-title { font-weight: 600; color: var(--mp-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .rch-item-sub { font-size: 13px; color: var(--mp-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .rch-item-amount { flex: 0 0 auto; font-weight: 700; color: var(--mp-text); font-size: 14px; }
+</style>
+
+@code {
+    // Terme de recherche courant (query string).
+    [SupplyParameterFromQuery(Name = "q")]
+    public string? Q { get; set; }
+
+    private string _term = "";
+    private bool _loading;
+    private string? _loadError;
+
+    private const int MaxPerSection = 10;
+
+    private List<Product> _products = new();
+    private List<SellerOrder> _orders = new();
+    private List<Return> _returns = new();
+
+    // Recharge à chaque changement de query string (?q=…), y compris navigation
+    // depuis le header alors que la page est déjà affichée.
+    protected override async Task OnParametersSetAsync()
+    {
+        _term = Q ?? "";
+        await RunSearch();
+    }
+
+    private void OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") Submit();
+    }
+
+    private void Submit()
+    {
+        var q = _term?.Trim() ?? "";
+        Nav.NavigateTo(string.IsNullOrEmpty(q) ? "recherche" : $"recherche?q={Uri.EscapeDataString(q)}");
+    }
+
+    private async Task RunSearch()
+    {
+        _loadError = null;
+        _products = new();
+        _orders = new();
+        _returns = new();
+
+        var q = Q?.Trim();
+        if (string.IsNullOrEmpty(q)) return;
+
+        _loading = true;
+        try
+        {
+            var products = await Api.ListProductsAsync();
+            var orders = await Api.ListOrdersAsync();
+
+            _products = products
+                .Where(p => Contains(p.Name, q) || Contains(p.Sku, q))
+                .ToList();
+
+            await EnrichPrices();
+
+            _orders = orders
+                .Where(o => Contains(o.Reference, q) || Contains(o.Customer, q))
+                .ToList();
+
+            // Retours : reliés à leur commande (pas de page de détail retour dédiée).
+            try
+            {
+                _returns = (await Api.ListReturnsAsync())
+                    .Where(r => Contains(r.OrderReference, q) || Contains(r.Customer, q) || Contains(r.Reason, q))
+                    .ToList();
+            }
+            catch { /* retours optionnels dans la recherche */ }
+        }
+        catch (Exception ex)
+        {
+            _loadError = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    // Prix réel : meilleure offre (la moins chère) par produit — sinon PriceXof reste à 0
+    // et Format.Xof(...) afficherait « 0 ». Même logique que la page Aperçu du catalogue.
+    private async Task EnrichPrices()
+    {
+        if (_products.Count == 0) return;
+        try
+        {
+            var byProduct = (await Api.ListOffersAsync())
+                .GroupBy(o => o.ProductId)
+                .ToDictionary(g => g.Key, g => g.OrderBy(o => o.BasePriceAmount).First());
+            foreach (var p in _products)
+            {
+                if (byProduct.TryGetValue(p.Id, out var best))
+                {
+                    p.PriceXof = (int)Math.Round(best.BasePriceAmount);
+                }
+            }
+        }
+        catch { /* prix optionnel */ }
+    }
+
+    private static bool Contains(string? value, string term) =>
+        !string.IsNullOrEmpty(value) && value.Contains(term, StringComparison.OrdinalIgnoreCase);
+}

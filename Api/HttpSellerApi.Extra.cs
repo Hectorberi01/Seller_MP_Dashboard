@@ -190,6 +190,12 @@ public partial class HttpSellerApi
     public async Task<Location> CreateLocationAsync(LocationRequest request)
         => await PostJson<Location>("/seller/locations", request);
 
+    public async Task DeleteLocationAsync(Guid id)
+    {
+        var resp = await _http.DeleteAsync($"/seller/locations/{id}");
+        resp.EnsureSuccessStatusCode();
+    }
+
     public async Task<IReadOnlyList<InventoryItem>> ListInventoryBySkuAsync(string sku)
         => (await _http.GetFromJsonAsync<List<InventoryItem>>($"/seller/inventory/by-sku/{Uri.EscapeDataString(sku)}")) ?? new();
 

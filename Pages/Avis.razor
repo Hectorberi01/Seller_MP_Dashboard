@@ -40,7 +40,32 @@ else
         </MpCard>
 
         <div class="review-list">
-            @foreach (var r in _reviews)
+            <div class="avis-toolbar">
+                <div class="avis-filters">
+                    @foreach (var f in _filters)
+                    {
+                        <button type="button" class="avis-chip @(_filter == f.Key ? "active" : "")"
+                                @onclick="() => SetFilter(f.Key)">@f.Label</button>
+                    }
+                </div>
+                <span class="mp-caption avis-count">@FilteredReviews.Count avis</span>
+            </div>
+
+            @if (FilteredReviews.Count == 0)
+            {
+                <MpCard>
+                    <ChildContent>
+                        <div class="avis-empty">
+                            <span class="avis-empty-ico">
+                                <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.1 8.3 22 9.3 17 14.1 18.2 21 12 17.8 5.8 21 7 14.1 2 9.3 8.9 8.3 12 2"/></svg>
+                            </span>
+                            <span class="mp-body-strong">@(_reviews.Count == 0 ? "Aucun avis pour l'instant" : "Aucun avis correspondant")</span>
+                            <span class="mp-caption">@(_reviews.Count == 0 ? "Les avis laissés par vos clients apparaîtront ici." : "Aucun avis ne correspond à ce filtre.")</span>
+                        </div>
+                    </ChildContent>
+                </MpCard>
+            }
+            @foreach (var r in PagedReviews)
             {
                 <MpCard>
                     <ChildContent>
@@ -55,7 +80,7 @@ else
 
                         @if (r.Flagged)
                         {
-                            <MpBadge Variant="BadgeVariant.Rupture" Icon="⚑">Signalé</MpBadge>
+                            <MpBadge Variant="BadgeVariant.Rupture" Icon="●">Signalé</MpBadge>
                         }
 
                         @if (r.SellerReply is not null)
@@ -81,13 +106,59 @@ else
                                 <MpButton Variant="ButtonVariant.Secondary" OnClick="@(() => StartReply(r))">Répondre</MpButton>
                                 @if (!r.Flagged)
                                 {
-                                    <MpButton Variant="ButtonVariant.Tertiary" OnClick="@(() => Flag(r))">Signaler</MpButton>
+                                    <MpButton Variant="ButtonVariant.Tertiary" Icon="flag" OnClick="@(() => Flag(r))">Signaler</MpButton>
                                 }
                             </div>
                         }
                     </ChildContent>
                 </MpCard>
             }
+
+            @if (ReviewsPageCount > 1)
+            {
+                <div class="avis-pager">
+                    <button class="avis-page-btn" type="button" disabled="@(_page <= 1)" @onclick="PrevPage">Précédent</button>
+                    <span class="mp-caption">Page @_page / @ReviewsPageCount</span>
+                    <button class="avis-page-btn" type="button" disabled="@(_page >= ReviewsPageCount)" @onclick="NextPage">Suivant</button>
+                </div>
+            }
         </div>
     </div>
+}
+
+@code {
+    // Filtre / pagination (côté client) — la logique métier reste dans Avis.razor.cs.
+    private string _filter = "all";
+    private int _page = 1;
+    private const int ReviewsPageSize = 8;
+
+    private readonly (string Key, string Label)[] _filters =
+    {
+        ("all", "Tous"),
+        ("flagged", "Signalés"),
+        ("noreply", "Sans réponse"),
+    };
+
+    private void SetFilter(string key) { _filter = key; _page = 1; }
+    private void PrevPage() { if (_page > 1) _page--; }
+    private void NextPage() { if (_page < ReviewsPageCount) _page++; }
+
+    private List<Review> FilteredReviews
+    {
+        get
+        {
+            if (_reviews is null) return new();
+            IEnumerable<Review> q = _reviews;
+            q = _filter switch
+            {
+                "flagged" => q.Where(r => r.Flagged),
+                "noreply" => q.Where(r => string.IsNullOrWhiteSpace(r.SellerReply)),
+                _ => q,
+            };
+            return q.ToList();
+        }
+    }
+
+    private int ReviewsPageCount => Math.Max(1, (int)Math.Ceiling(FilteredReviews.Count / (double)ReviewsPageSize));
+    private IEnumerable<Review> PagedReviews => FilteredReviews.Skip((Math.Min(_page, ReviewsPageCount) - 1) * ReviewsPageSize).Take(ReviewsPageSize);
 }

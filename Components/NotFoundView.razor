@@ -1,0 +1,26 @@
+@* Vue d'erreur réutilisable : rendue par le routeur (App.razor) pour toute route
+   inconnue (404), et par la page routable /404. Volontairement autonome (aucun
+   appel BFF, aucune dépendance à la session) pour s'afficher en toute circonstance. *@
+<div class="nf-wrap">
+    <div class="nf-card">
+        <span class="nf-badge" aria-hidden="true">@Code</span>
+        <h1>@Title</h1>
+        <p class="nf-text">@Message</p>
+        <div class="nf-actions">
+            <a class="nf-btn nf-btn-primary" href="/">Retour à l'accueil</a>
+            <a class="nf-btn" href="login">Aller à la connexion</a>
+        </div>
+    </div>
+</div>
+
+@code {
+    /// <summary>Code d'erreur affiché (404 par défaut).</summary>
+    [Parameter] public string Code { get; set; } = "404";
+
+    /// <summary>Titre principal.</summary>
+    [Parameter] public string Title { get; set; } = "Page introuvable";
+
+    /// <summary>Message explicatif.</summary>
+    [Parameter] public string Message { get; set; } =
+        "La page que vous cherchez n'existe pas, a été déplacée ou n'est plus disponible.";
+}

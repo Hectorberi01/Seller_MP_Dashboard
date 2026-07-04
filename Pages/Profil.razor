@@ -30,7 +30,8 @@ else
                         <MpBadge Variant="BadgeVariant.Verified" Icon="✓">Compte vérifié</MpBadge>
                         @if (u.MfaEnabled)
                         {
-                            <MpBadge Variant="BadgeVariant.Stock" Icon="🔒">MFA actif</MpBadge>
+                            <MpBadge Variant="BadgeVariant.Stock">
+                                <span class="mp-badge-icon" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg></span>MFA actif</MpBadge>
                         }
                     </div>
                 </div>
@@ -64,8 +65,15 @@ else
                     }
                 </div>
                 <div class="security-actions">
-                    <MpButton Variant="ButtonVariant.Secondary">Changer le mot de passe</MpButton>
-                    <MpButton Variant="ButtonVariant.Tertiary">Gérer les appareils</MpButton>
+                    <MpButton Variant="ButtonVariant.Secondary" OnClick="OpenPassword">Changer le mot de passe</MpButton>
+                    @if (u.MfaEnabled)
+                    {
+                        <MpButton Variant="ButtonVariant.Tertiary" OnClick="OpenMfa">Désactiver la double authentification</MpButton>
+                    }
+                    else
+                    {
+                        <MpButton Variant="ButtonVariant.Tertiary" OnClick="OpenMfa">Activer la double authentification</MpButton>
+                    }
                 </div>
             </ChildContent>
         </MpCard>
@@ -73,16 +81,207 @@ else
         <MpCard Title="Session">
             <ChildContent>
                 <p class="mp-caption">Connecté en tant que @u.Email.</p>
-                <MpButton Variant="ButtonVariant.Danger" Icon="⏻" OnClick="Logout">Se déconnecter</MpButton>
+                <MpButton Variant="ButtonVariant.Danger" Icon="log-out" OnClick="Logout">Se déconnecter</MpButton>
             </ChildContent>
         </MpCard>
     </div>
 </div>
+
+@if (showPwd)
+{
+    <div class="pf-overlay" @onclick="ClosePassword">
+        <div class="pf-modal" @onclick:stopPropagation="true">
+            <div class="pf-modal-head">
+                <h3>Changer le mot de passe</h3>
+                <button class="pf-close" type="button" @onclick="ClosePassword" aria-label="Fermer"><AppIcon Name="x" Size="18" /></button>
+            </div>
+            @if (pwdDone)
+            {
+                <p class="pf-ok"><AppIcon Name="check" Size="16" /> Mot de passe mis à jour.</p>
+                <div class="pf-actions"><MpButton Variant="ButtonVariant.Primary" OnClick="ClosePassword">Fermer</MpButton></div>
+            }
+            else
+            {
+                <div class="pf-field">
+                    <label>Mot de passe actuel</label>
+                    <input class="mp-input" type="password" @bind="pwdCurrent" autocomplete="current-password" />
+                </div>
+                <div class="pf-field">
+                    <label>Nouveau mot de passe</label>
+                    <input class="mp-input" type="password" @bind="pwdNew" autocomplete="new-password" />
+                </div>
+                <div class="pf-field">
+                    <label>Confirmer le nouveau mot de passe</label>
+                    <input class="mp-input" type="password" @bind="pwdConfirm" autocomplete="new-password" />
+                </div>
+                @if (pwdError is not null)
+                {
+                    <p class="pf-err">@pwdError</p>
+                }
+                <div class="pf-actions">
+                    <MpButton Variant="ButtonVariant.Tertiary" OnClick="ClosePassword">Annuler</MpButton>
+                    <MpButton Variant="ButtonVariant.Primary" Disabled="pwdSaving" OnClick="SubmitPassword">@(pwdSaving ? "Enregistrement…" : "Enregistrer")</MpButton>
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@if (showMfa)
+{
+    <div class="pf-overlay" @onclick="CloseMfa">
+        <div class="pf-modal" @onclick:stopPropagation="true">
+            <div class="pf-modal-head">
+                <h3>@(u.MfaEnabled ? "Désactiver la double authentification" : "Activer la double authentification")</h3>
+                <button class="pf-close" type="button" @onclick="CloseMfa" aria-label="Fermer"><AppIcon Name="x" Size="18" /></button>
+            </div>
+            @if (mfaDone)
+            {
+                <p class="pf-ok"><AppIcon Name="check" Size="16" /> @(u.MfaEnabled ? "Double authentification activée." : "Double authentification désactivée.")</p>
+                <div class="pf-actions"><MpButton Variant="ButtonVariant.Primary" OnClick="CloseMfa">Fermer</MpButton></div>
+            }
+            else if (!u.MfaEnabled)
+            {
+                <p class="mp-caption">Ajoutez le compte à votre application d'authentification (Google Authenticator, Authy…) puis saisissez le code à 6 chiffres.</p>
+                @if (mfaSetup is not null)
+                {
+                    <div class="pf-secret">
+                        <span class="mp-caption">Clé de configuration</span>
+                        <code>@mfaSetup.SecretKey</code>
+                    </div>
+                }
+                <div class="pf-field">
+                    <label>Code de vérification</label>
+                    <input class="mp-input mp-num" inputmode="numeric" maxlength="6" @bind="mfaCode" placeholder="123456" />
+                </div>
+                @if (mfaError is not null)
+                {
+                    <p class="pf-err">@mfaError</p>
+                }
+                <div class="pf-actions">
+                    <MpButton Variant="ButtonVariant.Tertiary" OnClick="CloseMfa">Annuler</MpButton>
+                    <MpButton Variant="ButtonVariant.Primary" Disabled="mfaSaving" OnClick="ConfirmMfa">@(mfaSaving ? "Vérification…" : "Activer")</MpButton>
+                </div>
+            }
+            else
+            {
+                <p class="mp-caption">Saisissez un code de votre application d'authentification pour confirmer la désactivation.</p>
+                <div class="pf-field">
+                    <label>Code de vérification</label>
+                    <input class="mp-input mp-num" inputmode="numeric" maxlength="6" @bind="mfaCode" placeholder="123456" />
+                </div>
+                @if (mfaError is not null)
+                {
+                    <p class="pf-err">@mfaError</p>
+                }
+                <div class="pf-actions">
+                    <MpButton Variant="ButtonVariant.Tertiary" OnClick="CloseMfa">Annuler</MpButton>
+                    <MpButton Variant="ButtonVariant.Danger" Disabled="mfaSaving" OnClick="DisableMfa">@(mfaSaving ? "Vérification…" : "Désactiver")</MpButton>
+                </div>
+            }
+        </div>
+    </div>
+}
 }
 
 @code {
     private AccountMe? u;
     private string? loadError;
+
+    // --- Changer le mot de passe ---
+    private bool showPwd, pwdSaving, pwdDone;
+    private string pwdCurrent = "", pwdNew = "", pwdConfirm = "";
+    private string? pwdError;
+
+    // --- Double authentification (MFA) ---
+    private bool showMfa, mfaSaving, mfaDone;
+    private string mfaCode = "";
+    private string? mfaError;
+    private MfaSetupResult? mfaSetup;
+
+    private void OpenPassword()
+    {
+        pwdCurrent = pwdNew = pwdConfirm = "";
+        pwdError = null; pwdDone = false; showPwd = true;
+    }
+
+    private void ClosePassword() => showPwd = false;
+
+    private async Task SubmitPassword()
+    {
+        pwdError = null;
+        if (string.IsNullOrWhiteSpace(pwdCurrent) || string.IsNullOrWhiteSpace(pwdNew))
+        {
+            pwdError = "Renseignez le mot de passe actuel et le nouveau.";
+            return;
+        }
+        if (pwdNew.Length < 8)
+        {
+            pwdError = "Le nouveau mot de passe doit contenir au moins 8 caractères.";
+            return;
+        }
+        if (pwdNew != pwdConfirm)
+        {
+            pwdError = "La confirmation ne correspond pas.";
+            return;
+        }
+        pwdSaving = true;
+        try
+        {
+            await Api.ChangePasswordAsync(new ChangePasswordRequest(pwdCurrent, pwdNew));
+            pwdDone = true;
+        }
+        catch
+        {
+            pwdError = "Échec : vérifiez votre mot de passe actuel.";
+        }
+        finally
+        {
+            pwdSaving = false;
+        }
+    }
+
+    private async Task OpenMfa()
+    {
+        mfaCode = ""; mfaError = null; mfaDone = false; mfaSetup = null; showMfa = true;
+        if (u is not null && !u.MfaEnabled)
+        {
+            try { mfaSetup = await Api.MfaSetupAsync(); }
+            catch { mfaError = "Impossible d'initialiser la double authentification."; }
+        }
+    }
+
+    private void CloseMfa() => showMfa = false;
+
+    private async Task ConfirmMfa()
+    {
+        mfaError = null;
+        if (string.IsNullOrWhiteSpace(mfaCode)) { mfaError = "Saisissez le code."; return; }
+        mfaSaving = true;
+        try
+        {
+            await Api.MfaConfirmAsync(new MfaCodeRequest(mfaCode.Trim()));
+            await Load();
+            mfaDone = true;
+        }
+        catch { mfaError = "Code invalide, réessayez."; }
+        finally { mfaSaving = false; }
+    }
+
+    private async Task DisableMfa()
+    {
+        mfaError = null;
+        if (string.IsNullOrWhiteSpace(mfaCode)) { mfaError = "Saisissez le code."; return; }
+        mfaSaving = true;
+        try
+        {
+            await Api.MfaDisableAsync(new MfaCodeRequest(mfaCode.Trim()));
+            await Load();
+            mfaDone = true;
+        }
+        catch { mfaError = "Code invalide, réessayez."; }
+        finally { mfaSaving = false; }
+    }
 
     protected override async Task OnInitializedAsync() => await Load();
 
@@ -133,4 +332,27 @@ else
     .security-row { display: flex; align-items: center; justify-content: space-between; gap: var(--mp-space-3); padding-bottom: var(--mp-space-3); border-bottom: 0.5px solid var(--mp-border); margin-bottom: var(--mp-space-3); }
     .sec-title { display: block; font-weight: 500; }
     .security-actions { display: flex; gap: var(--mp-space-2); flex-wrap: wrap; }
+
+    .pf-overlay {
+        position: fixed; inset: 0; background: rgba(4, 44, 83, 0.45);
+        display: flex; align-items: center; justify-content: center;
+        z-index: 1000; padding: var(--mp-space-4);
+    }
+    .pf-modal {
+        background: var(--mp-surface); border-radius: var(--mp-radius-lg);
+        width: 100%; max-width: 440px; padding: var(--mp-space-5);
+        box-shadow: 0 18px 50px rgba(4, 44, 83, 0.25);
+        display: flex; flex-direction: column; gap: var(--mp-space-3);
+    }
+    .pf-modal-head { display: flex; align-items: center; justify-content: space-between; }
+    .pf-modal-head h3 { margin: 0; font-size: 18px; color: var(--mp-primary-dark); }
+    .pf-close { background: none; border: 0; color: var(--mp-text-muted); cursor: pointer; padding: 4px; line-height: 0; border-radius: 6px; }
+    .pf-close:hover { background: var(--mp-surface-2); color: var(--mp-text); }
+    .pf-field { display: flex; flex-direction: column; gap: 6px; }
+    .pf-field label { font-size: 13px; color: var(--mp-text-muted); }
+    .pf-actions { display: flex; justify-content: flex-end; gap: var(--mp-space-2); margin-top: var(--mp-space-2); }
+    .pf-err { color: var(--mp-danger); font-size: 13px; margin: 0; }
+    .pf-ok { color: var(--mp-primary); font-size: 14px; display: flex; align-items: center; gap: 6px; margin: 0; }
+    .pf-secret { display: flex; flex-direction: column; gap: 4px; background: var(--mp-surface-2); border-radius: var(--mp-radius-md); padding: var(--mp-space-3); }
+    .pf-secret code { font-size: 15px; font-weight: 600; letter-spacing: 1px; color: var(--mp-text); word-break: break-all; }
 </style>

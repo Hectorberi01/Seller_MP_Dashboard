@@ -141,13 +141,36 @@ public class SellerOrder
     public Guid Id { get; set; }
     public Guid BuyerId { get; set; }
     public string Status { get; set; } = "";
+
+    /// <summary>
+    /// VRAI statut de paiement fourni par le BFF ("Paid" / "Pending" / "Refunded" /
+    /// "Failed"), dérivé de la source de vérité Ordering. Champ additif, distinct de
+    /// <see cref="Status"/> (statut commande/fulfillment). Null si le BFF ne le
+    /// renvoie pas encore (compat ascendante → repli sur la dérivation depuis Status).
+    /// </summary>
+    [JsonPropertyName("paymentStatus")]
+    public string? PaymentStatusRaw { get; set; }
+
     public DateTime CreatedAtUtc { get; set; }
     public decimal Subtotal { get; set; }
     public decimal GrandTotal { get; set; }
     public List<SellerOrderLine> Lines { get; set; } = new();
 
+    /// <summary>Nom du client résolu par le BFF (via Identity). Vide sur la liste (non enrichie).</summary>
+    [JsonPropertyName("customer")]
+    public string? CustomerName { get; set; }
+
+    /// <summary>Adresse de livraison figée sur la commande (null si non renseignée).</summary>
+    public ShippingAddress? ShippingAddress { get; set; }
+
     public string Reference => "CMD-" + Id.ToString("N")[..8].ToUpperInvariant();
-    public string Customer => "Client " + BuyerId.ToString("N")[..6].ToUpperInvariant();
+
+    /// <summary>Nom du client si le BFF l'a fourni (détail), sinon repli anonymisé.</summary>
+    [JsonIgnore] // getter d'affichage : ne participe pas à la (dé)sérialisation ("customer" est déjà pris par CustomerName).
+    public string Customer => string.IsNullOrWhiteSpace(CustomerName)
+        ? "Client " + BuyerId.ToString("N")[..6].ToUpperInvariant()
+        : CustomerName!;
+
     public DateTime Date => CreatedAtUtc;
     public int TotalXof => (int)Math.Round(GrandTotal);
     public int ItemCount => Lines.Sum(l => l.Quantity);
@@ -161,7 +184,25 @@ public class SellerOrder
         _ => Seller_MP_Dashboard.Models.OrderStatus.Pending
     };
 
-    public Seller_MP_Dashboard.Models.PaymentStatus UiPayment => Status.ToLowerInvariant() switch
+    /// <summary>
+    /// Statut de paiement pour l'UI. Priorité au VRAI statut de paiement fourni par
+    /// le BFF (<see cref="PaymentStatusRaw"/>, source de vérité Ordering). Repli sur
+    /// l'ancienne dérivation depuis <see cref="Status"/> si le champ est absent
+    /// (compat ascendante). Note : "Failed" (BFF) n'a pas d'équivalent front → mappé
+    /// sur Pending (paiement non encaissé → gating « Traiter » reste fermé).
+    /// </summary>
+    public Seller_MP_Dashboard.Models.PaymentStatus UiPayment =>
+        string.IsNullOrWhiteSpace(PaymentStatusRaw)
+            ? DerivePaymentFromStatus()
+            : PaymentStatusRaw.ToLowerInvariant() switch
+            {
+                "paid" => Seller_MP_Dashboard.Models.PaymentStatus.Paid,
+                "refunded" => Seller_MP_Dashboard.Models.PaymentStatus.Refunded,
+                _ => Seller_MP_Dashboard.Models.PaymentStatus.Pending // "pending", "failed", inconnu
+            };
+
+    /// <summary>Ancienne dérivation (repli) : déduit le paiement du statut de commande.</summary>
+    private Seller_MP_Dashboard.Models.PaymentStatus DerivePaymentFromStatus() => Status.ToLowerInvariant() switch
     {
         "paid" or "confirmed" or "shipped" or "delivered" => Seller_MP_Dashboard.Models.PaymentStatus.Paid,
         "refunded" => Seller_MP_Dashboard.Models.PaymentStatus.Refunded,
@@ -181,6 +222,23 @@ public class SellerDashboardKpis
     public double AverageRating { get; set; }
 }
 
+/// <summary>Adresse de livraison figée (snapshot BFF, cf. OrderShippingAddressSummary).</summary>
+public class ShippingAddress
+{
+    public string? Label { get; set; }
+    public string? Recipient { get; set; }
+    public string? Line1 { get; set; }
+    public string? Line2 { get; set; }
+    public string? City { get; set; }
+    public string? Country { get; set; }
+    public string? Phone { get; set; }
+
+    /// <summary>Vrai si au moins une composante d'adresse est renseignée.</summary>
+    public bool HasContent =>
+        !string.IsNullOrWhiteSpace(Recipient) || !string.IsNullOrWhiteSpace(Line1) ||
+        !string.IsNullOrWhiteSpace(City) || !string.IsNullOrWhiteSpace(Country);
+}
+
 public class SellerOrderLine
 {
     public Guid ProductId { get; set; }
@@ -189,7 +247,18 @@ public class SellerOrderLine
     public decimal FinalUnitPrice { get; set; }
     public decimal LineTotal { get; set; }
 
-    public string ProductName => string.IsNullOrWhiteSpace(Sku) ? "Article" : Sku;
+    /// <summary>Nom du produit résolu par le BFF (via Catalog). Repli sur le SKU si absent.</summary>
+    [JsonPropertyName("productName")]
+    public string? ProductNameResolved { get; set; }
+
+    /// <summary>URL de l'image principale du produit (via Catalog). Null → repli emoji.</summary>
+    public string? ImageUrl { get; set; }
+
+    [JsonIgnore] // getter d'affichage ("productName" est déjà pris par ProductNameResolved).
+    public string ProductName => !string.IsNullOrWhiteSpace(ProductNameResolved)
+        ? ProductNameResolved!
+        : (string.IsNullOrWhiteSpace(Sku) ? "Article" : Sku);
+
     public string Emoji => "📦";
     public int Qty => Quantity;
     public int UnitPriceXof => (int)Math.Round(FinalUnitPrice);

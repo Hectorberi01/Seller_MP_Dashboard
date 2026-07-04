@@ -1,4 +1,5 @@
-@page "/composants"
+@* Page de démonstration du design-system — NON routée (retirée du dashboard).
+   Conservée pour référence interne uniquement ; aucune route « /composants ». *@
 
 <PageTitle>Composants — Design System</PageTitle>
 
@@ -10,11 +11,11 @@
     <MpCard Title="Boutons" Subtitle="Une seule action (vert) par écran. Le reste est primaire (bleu) ou secondaire (contour).">
         <ChildContent>
             <div class="swatch-row">
-                <MpButton Variant="ButtonVariant.Action" Icon="🛒">Acheter</MpButton>
+                <MpButton Variant="ButtonVariant.Action" Icon="shopping-cart">Acheter</MpButton>
                 <MpButton Variant="ButtonVariant.Primary">Valider</MpButton>
                 <MpButton Variant="ButtonVariant.Secondary">Au panier</MpButton>
                 <MpButton Variant="ButtonVariant.Tertiary">Voir le détail</MpButton>
-                <MpButton Variant="ButtonVariant.Danger" Icon="🗑">Supprimer</MpButton>
+                <MpButton Variant="ButtonVariant.Danger" Icon="trash">Supprimer</MpButton>
                 <MpButton Variant="ButtonVariant.Primary" Disabled="true">Indisponible</MpButton>
             </div>
             <p class="mp-caption legend">Action · Primaire · Secondaire · Tertiaire · Danger · Désactivé</p>

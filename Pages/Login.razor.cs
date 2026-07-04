@@ -8,6 +8,10 @@ public partial class Login
     private LoginModel _login = new();
     private bool _busy;
     private string? _error;
+    private bool _showPassword;
+
+    // Bascule l'affichage du mot de passe en clair (icône œil).
+    private void TogglePassword() => _showPassword = !_showPassword;
 
     private async Task HandleLogin()
     {

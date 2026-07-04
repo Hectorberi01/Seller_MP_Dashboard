@@ -2,9 +2,8 @@ namespace Seller_MP_Dashboard.Api;
 
 // ============================================================
 // Surface API du BFF Vendeur, découpée par domaine (= tags BFF).
-// Une seule abstraction utilisée par l'UI ; deux implémentations :
-//   - MockSellerApi  (données fictives, enregistrée par défaut)
-//   - HttpSellerApi  (appels HTTP réels, non câblée pour l'instant)
+// Une seule abstraction utilisée par l'UI, implémentée par HttpSellerApi
+// (appels HTTP réels au BFF). Aucune implémentation mock.
 // ============================================================
 
 public interface ISellerAuthApi
@@ -22,6 +21,12 @@ public interface ISellerShopApi
     Task SetPayoutAccountAsync(PayoutAccountRequest request);
     Task UploadKybDocumentAsync(KybDocumentRequest request);
     Task UploadKybDocumentFileAsync(string type, string fileName, string contentType, byte[] content);
+    /// <summary>URL de téléchargement temporaire (présignée) d'une pièce KYB du vendeur.</summary>
+    Task<string?> GetKybDownloadUrlAsync(Guid documentId);
+    /// <summary>Supprime une pièce KYB de la boutique.</summary>
+    Task DeleteKybDocumentAsync(Guid documentId);
+    /// <summary>Téléverse (ou remplace) le logo de la boutique ; renvoie l'URL publique enregistrée.</summary>
+    Task<string?> SetShopLogoAsync(string fileName, string contentType, byte[] content);
 }
 
 public interface ISellerCatalogApi
@@ -80,6 +85,7 @@ public interface ISellerInventoryApi
 {
     Task<IReadOnlyList<Location>> ListLocationsAsync();
     Task<Location> CreateLocationAsync(LocationRequest request);
+    Task DeleteLocationAsync(Guid id);
     Task<IReadOnlyList<InventoryItem>> ListInventoryBySkuAsync(string sku);
     Task<InventoryItem> CreateItemAsync(CreateInventoryItemRequest request);
     Task ReceiveAsync(Guid itemId, QuantityRequest request);
@@ -146,6 +152,7 @@ public interface ISellerReviewsApi
 public interface ISellerApi :
     ISellerAuthApi, ISellerShopApi, ISellerCatalogApi, ISellerAccountApi, ISellerOffersApi,
     ISellerOrdersApi, ISellerDashboardApi, ISellerFulfillmentApi, ISellerFinanceApi, ISellerMessagingApi,
-    ISellerReviewsApi, ISellerReturnsApi, ISellerDisputesApi, ISellerInventoryApi
+    ISellerReviewsApi, ISellerReturnsApi, ISellerDisputesApi, ISellerInventoryApi,
+    ISellerWalletApi, ISellerNotificationsApi
 {
 }

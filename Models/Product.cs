@@ -32,11 +32,11 @@ public class Product
 
     public int ImageCount => Images.Count;
 
-    /// <summary>Prix effectif en XOF.</summary>
-    public int PriceXof { get; init; }
+    /// <summary>Prix effectif en XOF. Renseigné depuis la meilleure offre du produit.</summary>
+    public int PriceXof { get; set; }
 
     /// <summary>Prix barré (avant promo), null si pas de promo.</summary>
-    public int? OldPriceXof { get; init; }
+    public int? OldPriceXof { get; set; }
 
     public int Stock { get; set; }
     public double Rating { get; init; }

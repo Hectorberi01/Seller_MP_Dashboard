@@ -4,9 +4,11 @@
         <FocusOnNavigate RouteData="@routeData" Selector="h1"/>
     </Found>
     <NotFound>
-        <PageTitle>Not found</PageTitle>
-        <LayoutView Layout="@typeof(MainLayout)">
-            <p role="alert">Sorry, there's nothing at this address.</p>
+        <PageTitle>Page introuvable — Espace Vendeur</PageTitle>
+        @* BlankLayout (pas MainLayout) : MainLayout redirige vers /login si non
+           authentifié, ce qui masquerait le 404. La vue s'affiche donc pour tous. *@
+        <LayoutView Layout="@typeof(BlankLayout)">
+            <NotFoundView />
         </LayoutView>
     </NotFound>
 </Router>

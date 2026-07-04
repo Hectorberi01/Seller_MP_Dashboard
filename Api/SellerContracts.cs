@@ -47,11 +47,15 @@ public class KybDocument
     public string Type { get; set; } = "";
     public string FileUrl { get; set; } = "";
     public KybStatus Status { get; set; }
+
+    [JsonPropertyName("uploadedAtUtc")]
     public DateTime UploadedAt { get; set; }
+
+    public DateTime? VerifiedAtUtc { get; set; }
 }
 
 [JsonConverter(typeof(TolerantEnumConverter<KybStatus>))]
-public enum KybStatus { NotStarted, Pending, Submitted, Verified, Rejected }
+public enum KybStatus { NotStarted, Pending, Submitted, Verified, Rejected, InReview }
 
 // ---------- Catalogue ----------
 public class SellerCategory
@@ -96,9 +100,12 @@ public class CatalogProduct
 }
 
 // ---------- Offres ----------
-public record CreateOfferRequest(Guid ProductId, string Sku, double BasePriceAmount, string Currency,
+// Le champ prix est le PRIX VENDEUR (net) — sérialisé « sellerPrice » pour matcher
+// le BFF (/seller/offers), qui ajoute commission + frais provider pour le prix produit.
+public record CreateOfferRequest(Guid ProductId, string Sku,
+    [property: JsonPropertyName("sellerPrice")] double BasePriceAmount, string Currency,
     string Condition, string FulfillmentType, Guid ShipFromLocationId, int HandlingTime);
-public record OfferPriceRequest(double Amount, string Currency);
+public record OfferPriceRequest([property: JsonPropertyName("sellerPrice")] double Amount, string Currency);
 public record OfferStatusRequest(string Status);
 public record HandlingTimeRequest(int HandlingTime);
 
@@ -108,12 +115,52 @@ public class Offer
     public Guid ProductId { get; init; }
     public string ProductName { get; set; } = "";
     public string Sku { get; set; } = "";
+    // Prix produit payé par l'acheteur (prix vendeur + commission + frais provider).
+    // Le BFF renvoie ce montant dans BasePriceAmount ; les décompositions ci-dessous
+    // (sellerPrice, commissionAmount, providerFeeAmount, productPrice) sont fournies
+    // par le BFF si disponibles, sinon recalculées par les propriétés dérivées.
     public double BasePriceAmount { get; set; }
     public string Currency { get; set; } = "XOF";
     public string Condition { get; set; } = "new";       // new | used | refurbished
     public string FulfillmentType { get; set; } = "seller"; // seller | platform
     public int HandlingTime { get; set; }                 // jours
     public string Status { get; set; } = "active";        // active | paused | closed
+
+    // ---- Décomposition du prix (renvoyée par le BFF si disponible, désér. camelCase) ----
+    /// <summary>Prix vendeur (net) — ce que le vendeur reçoit.</summary>
+    public double? SellerPrice { get; set; }
+    /// <summary>Montant de la commission plateforme (10%).</summary>
+    public double? CommissionAmount { get; set; }
+    /// <summary>Montant des frais provider (5%).</summary>
+    public double? ProviderFeeAmount { get; set; }
+    /// <summary>Prix produit payé par l'acheteur.</summary>
+    public double? ProductPrice { get; set; }
+
+    // ---- Valeurs effectives (BFF si présent, sinon calcul depuis le prix produit) ----
+    /// <summary>Prix payé par l'acheteur : ProductPrice du BFF, sinon BasePriceAmount.</summary>
+    public double EffectiveProductPrice => ProductPrice ?? BasePriceAmount;
+    /// <summary>Prix vendeur : SellerPrice du BFF, sinon prix produit / 1,15.</summary>
+    public double EffectiveSellerPrice =>
+        SellerPrice ?? EffectiveProductPrice / OfferPricing.PriceMultiplier;
+}
+
+/// <summary>
+/// Constantes de tarification (aperçu en direct côté dashboard, alignées sur la config
+/// backend). Le vendeur saisit son prix vendeur (net) ; la plateforme ajoute une
+/// commission puis des frais provider pour obtenir le prix payé par l'acheteur.
+/// </summary>
+public static class OfferPricing
+{
+    /// <summary>Taux de commission plateforme (10%).</summary>
+    public const double CommissionRate = 0.10;
+    /// <summary>Taux de frais provider (5%).</summary>
+    public const double ProviderFeeRate = 0.05;
+    /// <summary>Multiplicateur prix vendeur → prix produit (1,15).</summary>
+    public const double PriceMultiplier = 1 + CommissionRate + ProviderFeeRate;
+
+    public static double Commission(double sellerPrice) => sellerPrice * CommissionRate;
+    public static double ProviderFee(double sellerPrice) => sellerPrice * ProviderFeeRate;
+    public static double ProductPrice(double sellerPrice) => sellerPrice * PriceMultiplier;
 }
 
 // ---------- Exécution / Expéditions ----------
@@ -142,8 +189,9 @@ public class FinanceStatement
     public DateTime To { get; init; }
     public int GrossSalesXof { get; init; }
     public int CommissionXof { get; init; }
+    public int ProviderFeeXof { get; init; }
     public int RefundsXof { get; init; }
-    public int NetEarningsXof => GrossSalesXof - CommissionXof - RefundsXof;
+    public int NetEarningsXof => GrossSalesXof - CommissionXof - ProviderFeeXof - RefundsXof;
     public List<StatementLine> Lines { get; init; } = new();
 }
 
@@ -165,8 +213,10 @@ public class Payout
     public string Provider { get; init; } = "";
 }
 
+// Requested/Rejected couvrent le workflow « demande → validation admin » : sans eux,
+// le TolerantEnumConverter retomberait sur Pending et masquerait un refus.
 [JsonConverter(typeof(TolerantEnumConverter<PayoutStatus>))]
-public enum PayoutStatus { Pending, Processing, Paid, Failed }
+public enum PayoutStatus { Pending, Requested, Processing, Paid, Failed, Rejected }
 
 // ---------- Messagerie ----------
 public record SendRequest(string Body, List<string>? Attachments = null);

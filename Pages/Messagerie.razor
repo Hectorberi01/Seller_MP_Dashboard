@@ -1,5 +1,11 @@
 @page "/messagerie"
+@using Microsoft.AspNetCore.SignalR.Client
+@using Microsoft.Extensions.Configuration
+@using Seller_MP_Dashboard.Services
 @inject ISellerApi Api
+@inject AuthState Auth
+@inject IConfiguration Configuration
+@implements IAsyncDisposable
 
 <PageTitle>Messagerie — Espace Vendeur</PageTitle>
 
@@ -19,8 +25,35 @@ else
     <div class="msg-layout">
         <MpCard NoPadding="true">
             <ChildContent>
+                @if (conversations.Count > 0)
+                {
+                    <div class="conv-search-wrap">
+                        <input class="mp-input conv-search" placeholder="Rechercher une conversation…"
+                               value="@convSearch" @oninput="OnConvSearchChanged" />
+                    </div>
+                }
+                @if (conversations.Count == 0)
+                {
+                    <div class="conv-empty">
+                        <span class="conv-empty-ico">
+                            <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>
+                        </span>
+                        <span class="mp-body-strong">Aucune conversation</span>
+                        <span class="mp-caption">Les messages de vos clients apparaîtront ici.</span>
+                    </div>
+                }
+                else if (FilteredConversations.Count == 0)
+                {
+                    <div class="conv-empty">
+                        <span class="conv-empty-ico">
+                            <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>
+                        </span>
+                        <span class="mp-body-strong">Aucune conversation</span>
+                        <span class="mp-caption">Aucune conversation ne correspond à votre recherche.</span>
+                    </div>
+                }
                 <div class="conv-list">
-                    @foreach (var c in conversations)
+                    @foreach (var c in FilteredConversations)
                     {
                         <button class="conv-item @(c.Id == selectedId ? "is-active" : null)" @onclick="@(() => Select(c.Id))">
                             <div class="conv-top">
@@ -42,7 +75,13 @@ else
             <ChildContent>
                 @if (selected is null)
                 {
-                    <div class="thread-empty mp-caption">Sélectionnez une conversation.</div>
+                    <div class="thread-empty">
+                        <span class="thread-empty-ico">
+                            <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                        </span>
+                        <span class="mp-body-strong">Aucune conversation sélectionnée</span>
+                        <span class="mp-caption">Choisissez une discussion à gauche pour l'afficher.</span>
+                    </div>
                 }
                 else
                 {
@@ -81,6 +120,9 @@ else
     .msg-layout { display: grid; grid-template-columns: 320px 1fr; gap: var(--mp-space-4); align-items: stretch; height: 70vh; }
     @@media (max-width: 860px) { .msg-layout { grid-template-columns: 1fr; height: auto; } }
 
+    .conv-search-wrap { padding: var(--mp-space-3) var(--mp-space-4); border-bottom: 0.5px solid var(--mp-border); }
+    .conv-search { width: 100%; }
+
     .conv-list { display: flex; flex-direction: column; }
     .conv-item {
         appearance: none; cursor: pointer; text-align: left;
@@ -102,8 +144,12 @@ else
     }
     .conv-preview { font-size: 13px; color: var(--mp-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+    .conv-empty { display: flex; flex-direction: column; align-items: center; gap: var(--mp-space-1); text-align: center; padding: var(--mp-space-8) var(--mp-space-4); }
+    .conv-empty-ico { color: var(--mp-text-muted); display: inline-flex; margin-bottom: var(--mp-space-1); }
+
     .thread { display: flex; flex-direction: column; height: 100%; }
-    .thread-empty { padding: var(--mp-space-8); text-align: center; }
+    .thread-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--mp-space-1); height: 100%; text-align: center; padding: var(--mp-space-8); }
+    .thread-empty-ico { color: var(--mp-text-muted); display: inline-flex; margin-bottom: var(--mp-space-1); }
     .thread-head { padding: var(--mp-space-3) var(--mp-space-4); border-bottom: 0.5px solid var(--mp-border); display: flex; flex-direction: column; }
     .thread-name { font-weight: 600; }
     .thread-body { flex: 1; overflow-y: auto; padding: var(--mp-space-4); display: flex; flex-direction: column; gap: var(--mp-space-2); }
@@ -136,8 +182,64 @@ else
     private IReadOnlyList<Message>? messages;
     private string draft = "";
     private string? loadError;
+    private HubConnection? _hub;
 
-    protected override async Task OnInitializedAsync() => await Load();
+    // Recherche des conversations (côté client) — n'affecte pas le hub ni la sélection.
+    private string convSearch = "";
+    private void OnConvSearchChanged(ChangeEventArgs e) => convSearch = e.Value?.ToString() ?? "";
+
+    private List<Conversation> FilteredConversations
+    {
+        get
+        {
+            if (conversations is null) return new();
+            if (string.IsNullOrWhiteSpace(convSearch)) return conversations.ToList();
+            var s = convSearch.Trim();
+            return conversations.Where(c =>
+                   (c.Customer ?? "").Contains(s, StringComparison.OrdinalIgnoreCase)
+                || (c.Subject ?? "").Contains(s, StringComparison.OrdinalIgnoreCase)
+                || (c.LastMessage ?? "").Contains(s, StringComparison.OrdinalIgnoreCase)).ToList();
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Load();
+        await ConnectRealtime();
+    }
+
+    private async Task ConnectRealtime()
+    {
+        var baseUrl = Configuration["Api:BaseUrl"];
+        if (string.IsNullOrWhiteSpace(baseUrl)) return;
+
+        try
+        {
+            _hub = new HubConnectionBuilder()
+                .WithUrl($"{baseUrl.TrimEnd('/')}/seller/hubs/chat",
+                    options => options.AccessTokenProvider = () => Task.FromResult(Auth.AccessToken))
+                .WithAutomaticReconnect()
+                .Build();
+
+            _hub.On<object>("message", async _ =>
+            {
+                if (selectedId != Guid.Empty)
+                {
+                    messages = await Api.GetMessagesAsync(selectedId);
+                    conversations = await Api.ListConversationsAsync();
+                    await InvokeAsync(StateHasChanged);
+                }
+            });
+
+            await _hub.StartAsync();
+            if (selectedId != Guid.Empty)
+                await _hub.InvokeAsync("JoinConversation", selectedId.ToString());
+        }
+        catch
+        {
+            // Repli silencieux : la messagerie reste utilisable (rechargement manuel).
+        }
+    }
 
     private async Task Load()
     {
@@ -158,6 +260,9 @@ else
         selectedId = id;
         selected = conversations?.FirstOrDefault(c => c.Id == id);
         messages = await Api.GetMessagesAsync(id);
+
+        if (_hub is { State: HubConnectionState.Connected })
+            await _hub.InvokeAsync("JoinConversation", id.ToString());
     }
 
     private async Task Send()
@@ -171,5 +276,10 @@ else
     private async Task OnKey(KeyboardEventArgs e)
     {
         if (e.Key == "Enter") await Send();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_hub is not null) await _hub.DisposeAsync();
     }
 }

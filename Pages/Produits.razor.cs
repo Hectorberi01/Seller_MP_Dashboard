@@ -16,8 +16,25 @@ public partial class Produits
     private string? _loadError;
 
     private StockStatus? _filter;
-    private IEnumerable<Product> Filtered =>
-        (_products ?? Array.Empty<Product>()).Where(p => _filter is null || p.StockStatus == _filter);
+    private string _search = "";
+    private int _page = 1;
+    private const int PageSize = 15;
+
+    private List<Product> Filtered =>
+        (_products ?? Array.Empty<Product>())
+            .Where(p => _filter is null || p.StockStatus == _filter)
+            .Where(p => string.IsNullOrWhiteSpace(_search)
+                     || p.Name.Contains(_search.Trim(), StringComparison.OrdinalIgnoreCase)
+                     || (p.Sku ?? "").Contains(_search.Trim(), StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+    private int PageCount => Math.Max(1, (int)Math.Ceiling(Filtered.Count / (double)PageSize));
+    private IEnumerable<Product> Paged => Filtered.Skip((Math.Min(_page, PageCount) - 1) * PageSize).Take(PageSize);
+
+    private void SetStockFilter(StockStatus? status) { _filter = status; _page = 1; }
+    private void OnSearchChanged(ChangeEventArgs e) { _search = e.Value?.ToString() ?? ""; _page = 1; }
+    private void PrevPage() { if (_page > 1) _page--; }
+    private void NextPage() { if (_page < PageCount) _page++; }
 
     private IReadOnlyList<SellerCategory>? _categories;
     private IReadOnlyList<SellerBrand>? _brands;
@@ -205,9 +222,29 @@ public partial class Produits
         _showCreate = false;
     }
 
-    private async Task DeleteProduct(Product p)
+    // --- Suppression (avec confirmation) ---
+    private Product? _deleteTarget;
+    private bool _deleting;
+    private string? _deleteError;
+
+    private void AskDelete(Product p)
     {
-        await Api.DeleteProductAsync(p.Id);
-        await Load();
+        _deleteError = null;
+        _deleteTarget = p;
+    }
+
+    private async Task ConfirmDelete()
+    {
+        if (_deleteTarget is null) return;
+        _deleting = true;
+        _deleteError = null;
+        try
+        {
+            await Api.DeleteProductAsync(_deleteTarget.Id);
+            _deleteTarget = null;
+            await Load();
+        }
+        catch (Exception ex) { _deleteError = $"Échec de la suppression : {ex.Message}"; }
+        finally { _deleting = false; }
     }
 }

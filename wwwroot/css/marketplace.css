@@ -4,12 +4,12 @@
    ============================================================ */
 
 :root {
-    /* --- Marque (bleu / confiance) --- */
-    --mp-primary:        #185FA5;
-    --mp-primary-hover:  #0C447C;
-    --mp-primary-dark:   #042C53;
-    --mp-primary-light:  #E6F1FB;
-    --mp-primary-400:    #378ADD;
+    /* --- Marque (vert / HbaExpress Pro) --- */
+    --mp-primary:        #1F8A4C;
+    --mp-primary-hover:  #177A41;
+    --mp-primary-dark:   #0F5C30;
+    --mp-primary-light:  #E8F5EE;
+    --mp-primary-400:    #34B36A;
 
     /* --- Fonctionnelles --- */
     --mp-action:         #639922;  /* acheter / succès */
@@ -21,7 +21,7 @@
     /* --- Neutres chauds --- */
     --mp-surface:        #FFFFFF;  /* cartes, surfaces */
     --mp-surface-2:      #F7F5F0;  /* surfaces secondaires */
-    --mp-bg:             #F1EFE8;  /* fond de page */
+    --mp-bg:             #F8FAF8;  /* fond de page */
     --mp-text:           #2C2C2A;  /* texte principal */
     --mp-text-muted:     #888780;  /* texte atténué */
     --mp-border:         #E5E2D8;  /* bordures fines */
@@ -30,7 +30,7 @@
     /* --- Badges (fonds clairs + textes foncés) --- */
     --mp-badge-stock-bg:   #EAF3DE;  --mp-badge-stock-tx:   #27500A;
     --mp-badge-promo-bg:   #FAEEDA;  --mp-badge-promo-tx:   #633806;
-    --mp-badge-verif-bg:   #E6F1FB;  --mp-badge-verif-tx:   #0C447C;
+    --mp-badge-verif-bg:   #E8F5EE;  --mp-badge-verif-tx:   #0F5C30;
     --mp-badge-rupture-bg: #FCEBEB;  --mp-badge-rupture-tx: #791F1F;
 
     /* --- Typographie --- */
