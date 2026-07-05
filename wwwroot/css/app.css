@@ -100,3 +100,38 @@ code {
 .form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
     text-align: start;
 }
+
+/* ============================================================
+   Adaptations mobiles globales (< 641px) — rendu « app mobile »
+   ============================================================ */
+@media (max-width: 640.98px) {
+    /* La coquille ne dépasse jamais la largeur de l'écran (aucun décalage
+       horizontal, aucun contenu coupé à droite). */
+    html, body { overflow-x: hidden; }
+    .page, main { max-width: 100%; min-width: 0; }
+    .content { max-width: 100%; min-width: 0; overflow-x: hidden; }
+
+    /* Images/médias jamais plus larges que l'écran. */
+    img, svg, video, canvas { max-width: 100%; }
+
+    /* Tableaux : le corps de carte défile horizontalement (les colonnes sont
+       préservées, on ne casse pas la mise en page). La carte garde son
+       overflow:hidden pour le rayon ; le défilement vit dans le corps. */
+    .mp-card-body { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .mp-table, .kyb-table { min-width: max-content; }
+
+    /* Grilles multi-colonnes qui ne se replient pas déjà sous 640px → 1 colonne. */
+    .mp-grid-2, .mp-grid-3, .attr-row { grid-template-columns: 1fr !important; }
+
+    /* Champs de saisie à 16px : empêche le zoom automatique iOS au focus. */
+    .mp-input, .mp-select, .mp-textarea,
+    input, select, textarea { font-size: 16px; }
+
+    /* Titres un cran plus compacts sur petit écran. */
+    .mp-display { font-size: 27px; }
+    h1, .mp-h1 { font-size: 23px; }
+    h2, .mp-h2 { font-size: 19px; }
+
+    /* Cibles tactiles confortables pour les boutons. */
+    button, .mp-btn, [role="button"] { min-height: 40px; }
+}

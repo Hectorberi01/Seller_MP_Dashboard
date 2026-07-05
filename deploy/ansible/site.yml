@@ -1,0 +1,100 @@
+- name: Déploiement du dashboard vendeur (Blazor WASM + Caddy)
+  hosts: web_seller
+  become: true
+
+  tasks:
+    # ---------------------------------------------------------
+    # 1. Prérequis système + Docker Engine / Compose plugin
+    # ---------------------------------------------------------
+    - name: Paquets de base
+      ansible.builtin.apt:
+        name:
+          - ca-certificates
+          - curl
+          - gnupg
+          - rsync
+        state: present
+        update_cache: true
+
+    - name: Répertoire des clés APT
+      ansible.builtin.file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: "0755"
+
+    - name: Clé GPG Docker
+      ansible.builtin.get_url:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        dest: /etc/apt/keyrings/docker.asc
+        mode: "0644"
+
+    - name: Dépôt APT Docker
+      ansible.builtin.apt_repository:
+        repo: >-
+          deb [arch={{ 'arm64' if ansible_architecture == 'aarch64' else 'amd64' }}
+          signed-by=/etc/apt/keyrings/docker.asc]
+          https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable
+        filename: docker
+        state: present
+
+    - name: Installer Docker Engine + plugin Compose
+      ansible.builtin.apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
+        state: present
+        update_cache: true
+
+    - name: Service Docker démarré et activé
+      ansible.builtin.service:
+        name: docker
+        state: started
+        enabled: true
+
+    # ---------------------------------------------------------
+    # 2. Synchronisation des sources + build/déploiement
+    # ---------------------------------------------------------
+    - name: Répertoire de l'application
+      ansible.builtin.file:
+        path: "{{ app_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Synchroniser les sources vers le VPS
+      ansible.posix.synchronize:
+        src: "{{ project_src }}/"
+        dest: "{{ app_dir }}/"
+        delete: true
+        recursive: true
+        rsync_opts:
+          - "--exclude=bin/"
+          - "--exclude=obj/"
+          - "--exclude=.git/"
+          - "--exclude=.vs/"
+          - "--exclude=deploy/ansible/"
+
+    - name: Build de l'image et (re)démarrage du conteneur
+      ansible.builtin.command:
+        cmd: docker compose -f deploy/docker-compose.yml up -d --build --remove-orphans
+        chdir: "{{ app_dir }}"
+      environment:
+        # Réseau Docker du Caddy frontal auquel se joindre.
+        EDGE_NETWORK: "{{ edge_network }}"
+      register: compose_up
+      changed_when: "'Started' in compose_up.stderr or 'Recreate' in compose_up.stderr or 'Building' in compose_up.stderr"
+
+    - name: Nettoyage des images inutilisées
+      ansible.builtin.command:
+        cmd: docker image prune -f
+      changed_when: false
+
+    - name: Rappel post-déploiement
+      ansible.builtin.debug:
+        msg: >-
+          Conteneur web-seller démarré sur le réseau « {{ edge_network }} ».
+          Ajoutez au Caddy frontal le bloc : {{ domain }} { reverse_proxy web-seller:80 }
+          puis rechargez-le. DNS A de {{ domain }} → {{ ansible_host }}.
+          App : https://{{ domain }}

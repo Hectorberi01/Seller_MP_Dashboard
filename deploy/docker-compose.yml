@@ -1,0 +1,21 @@
+name: web-seller
+
+# Dashboard vendeur HbaExpress Pro. Sert le Blazor WASM en HTTP interne ; le
+# Caddy frontal déjà présent sur le VPS assure le domaine + TLS via reverse_proxy.
+# Aucun port publié : le conteneur est joint au réseau du Caddy frontal.
+services:
+  web-seller:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    image: web-seller:latest
+    container_name: web-seller
+    restart: unless-stopped
+    networks:
+      - edge
+
+# Réseau externe = celui du Caddy frontal (nom fourni via EDGE_NETWORK).
+networks:
+  edge:
+    external: true
+    name: ${EDGE_NETWORK:-caddy_default}

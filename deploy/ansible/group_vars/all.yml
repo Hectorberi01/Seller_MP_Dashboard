@@ -1,0 +1,10 @@
+# Variables partagées du déploiement web-seller.
+app_dir: /opt/web-seller
+domain: web-seller.hba-marketplace.fr
+
+# Réseau Docker du Caddy frontal existant, auquel le conteneur se joint.
+# À VÉRIFIER sur le VPS :  docker inspect -f '{{range $k,$v := .NetworkSettings.Networks}}{{$k}} {{end}}' <caddy>
+edge_network: multiseller_ms-net
+
+# Racine du projet (Seller_MP_Dashboard) relative à ce playbook.
+project_src: "{{ playbook_dir }}/../.."

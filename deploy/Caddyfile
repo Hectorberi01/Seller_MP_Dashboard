@@ -1,0 +1,29 @@
+# ============================================================
+#  Caddy INTERNE du conteneur web-seller (Blazor WASM).
+#  Sert le site en HTTP sur :80 à l'intérieur du réseau Docker.
+#  Le Caddy FRONTAL du VPS gère le domaine + HTTPS et fait un
+#  reverse_proxy vers ce conteneur (voir README).
+# ============================================================
+
+:80 {
+	root * /srv
+	encode zstd gzip
+
+	# SPA Blazor : toute route inconnue → index.html.
+	try_files {path} /index.html
+	file_server
+
+	# Assets versionnés : cache long immuable.
+	@immutable path /_framework/* /css/* /img/* /lib/*
+	header @immutable Cache-Control "public, max-age=31536000, immutable"
+
+	# index.html jamais mis en cache.
+	@html path / /index.html
+	header @html Cache-Control "no-cache"
+
+	header {
+		-Server
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+	}
+}
