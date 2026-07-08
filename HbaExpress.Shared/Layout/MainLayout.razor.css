@@ -1,0 +1,304 @@
+.page {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+}
+
+main {
+    flex: 1;
+    min-width: 0;
+    background-color: var(--mp-bg);
+}
+
+.sidebar {
+    background-color: var(--mp-surface);
+    border-right: 0.5px solid var(--mp-border);
+}
+
+/* ============================================================
+   Topbar
+   ============================================================ */
+.top-row {
+    background-color: var(--mp-surface);
+    border-bottom: 0.5px solid var(--mp-border);
+    height: 3.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--mp-space-4);
+    padding: 0 var(--mp-space-6);
+}
+
+/* --- Marque (affichée dans la topbar en mobile uniquement) --- */
+.top-brand { display: none; align-items: center; gap: var(--mp-space-2); text-decoration: none; min-width: 0; }
+.top-brand:hover { text-decoration: none; }
+.top-brand-logo { width: 1.9rem; height: 1.9rem; border-radius: var(--mp-radius-md); flex-shrink: 0; }
+.top-brand-name { font-size: 1rem; font-weight: 700; color: var(--mp-text); white-space: nowrap; }
+.top-brand-pro { color: var(--mp-primary); margin-left: 4px; text-transform: uppercase; font-size: 0.72rem; letter-spacing: 0.04em; }
+
+/* --- Recherche --- */
+.top-search {
+    display: flex;
+    align-items: center;
+    gap: var(--mp-space-2);
+    background-color: var(--mp-surface-2);
+    border: 1px solid var(--mp-border);
+    border-radius: 999px;
+    padding: 0 var(--mp-space-3);
+    height: 2.25rem;
+    flex: 1;
+    max-width: 420px;
+}
+.top-search-ico { font-size: 14px; color: var(--mp-text-muted); }
+.top-search-input {
+    border: none;
+    outline: none;
+    background: transparent;
+    font-family: var(--mp-font-sans);
+    font-size: 14px;
+    color: var(--mp-text);
+    width: 100%;
+}
+.top-search-input::placeholder { color: var(--mp-text-muted); }
+
+/* --- Actions à droite --- */
+.top-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--mp-space-3);
+    flex-shrink: 0;
+}
+
+.top-verif {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--mp-badge-verif-tx);
+    background-color: var(--mp-badge-verif-bg);
+    padding: 4px 10px;
+    border-radius: 999px;
+    white-space: nowrap;
+}
+
+.top-icon {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: var(--mp-radius-md);
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-size: 1rem;
+    color: var(--mp-text);
+    text-decoration: none;
+}
+.top-icon:hover { background-color: var(--mp-surface-2); text-decoration: none; }
+
+.top-dot {
+    position: absolute;
+    top: 5px;
+    right: 6px;
+    width: 7px;
+    height: 7px;
+    border-radius: 999px;
+    background-color: var(--mp-danger);
+    border: 1.5px solid var(--mp-surface);
+}
+
+.top-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 999px;
+    background-color: var(--mp-primary);
+    color: #fff;
+    font-weight: 600;
+    font-size: 13px;
+    text-decoration: none;
+}
+.top-avatar:hover { color: #fff; text-decoration: none; }
+
+/* --- Panneau des notifications --- */
+.notif-wrap { position: relative; display: inline-flex; }
+
+.notif-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    background: transparent;
+}
+
+.notif-panel {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    z-index: 50;
+    width: 340px;
+    max-width: calc(100vw - 2rem);
+    background-color: var(--mp-surface);
+    border: 1px solid var(--mp-border);
+    border-radius: var(--mp-radius-lg);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
+    overflow: hidden;
+}
+
+.notif-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--mp-space-2);
+    padding: var(--mp-space-3) var(--mp-space-4);
+    border-bottom: 0.5px solid var(--mp-border);
+}
+.notif-title { font-size: 14px; font-weight: 600; color: var(--mp-text); }
+.notif-mark-all {
+    border: none;
+    background: transparent;
+    color: var(--mp-primary);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0;
+}
+.notif-mark-all:hover { color: var(--mp-primary-hover); text-decoration: underline; }
+
+.notif-list { max-height: 380px; overflow-y: auto; }
+
+.notif-empty {
+    padding: var(--mp-space-6) var(--mp-space-4);
+    text-align: center;
+    font-size: 13px;
+    color: var(--mp-text-muted);
+}
+
+.notif-item {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--mp-space-2);
+    width: 100%;
+    text-align: left;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    padding: var(--mp-space-3) var(--mp-space-4);
+    border-bottom: 0.5px solid var(--mp-border);
+}
+.notif-item:last-child { border-bottom: none; }
+.notif-item:hover { background-color: var(--mp-surface-2); }
+.notif-item.unread { background-color: var(--mp-primary-light); }
+.notif-item.unread:hover { background-color: var(--mp-primary-light); }
+
+.notif-item-dot {
+    flex-shrink: 0;
+    width: 7px;
+    height: 7px;
+    margin-top: 6px;
+    border-radius: 999px;
+    background-color: transparent;
+}
+.notif-item.unread .notif-item-dot { background-color: var(--mp-primary); }
+
+.notif-item-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.notif-item-title { font-size: 13px; font-weight: 600; color: var(--mp-text); }
+.notif-item-msg {
+    font-size: 12px;
+    color: var(--mp-text);
+    opacity: 0.85;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+.notif-item-time { font-size: 11px; color: var(--mp-text-muted); }
+
+.notif-foot {
+    display: block;
+    text-align: center;
+    padding: var(--mp-space-3);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--mp-primary);
+    text-decoration: none;
+    border-top: 0.5px solid var(--mp-border);
+}
+.notif-foot:hover { background-color: var(--mp-surface-2); text-decoration: none; }
+
+/* ============================================================
+   Zone de contenu
+   ============================================================ */
+.content {
+    padding: var(--mp-space-6);
+    max-width: 1280px;
+}
+
+@media (min-width: 641px) {
+    .page { flex-direction: row; }
+
+    .sidebar {
+        width: 250px;
+        height: 100vh;
+        position: sticky;
+        top: 0;
+        flex-shrink: 0;
+    }
+
+    .top-row {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+    }
+}
+
+@media (max-width: 640.98px) {
+    /* Mode « application mobile » : sidebar masquée, navigation en bas.
+       App-shell : la page occupe tout l'écran, SEUL .content défile → le header
+       et la barre d'onglets restent fixes. */
+    .sidebar { display: none; }
+    .page { height: 100vh; height: 100dvh; overflow: hidden; }
+    main { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+
+    .top-brand { display: flex; }
+    .top-search { display: none; }
+    .top-verif { display: none; }
+
+    /* Header fixe (enfant flex non défilant), descendu sous l'encoche (safe-area). */
+    .top-row {
+        position: static;
+        flex-shrink: 0;
+        z-index: 20;
+        height: auto;
+        min-height: 3.25rem;
+        padding: calc(env(safe-area-inset-top, 0) + 6px) var(--mp-space-4) 6px;
+    }
+
+    /* Seul le contenu défile ; marge basse pour dégager la barre d'onglets. */
+    .content {
+        flex: 1;
+        overflow-y: auto;
+        overflow-x: hidden;
+        /* Pas de -webkit-overflow-scrolling:touch : il « contient » les éléments
+           position:fixed (modales) sur iOS et masque leur en-tête/croix. */
+        padding: var(--mp-space-4);
+        padding-bottom: calc(4.5rem + env(safe-area-inset-bottom, 0));
+        max-width: none;
+    }
+
+    /* Panneau de notifications : sur mobile la cloche n'est pas au bord droit ;
+       ancré en absolute/right:0, le panneau (340px) débordait hors écran à gauche.
+       On le passe en feuille FIXE pleine largeur (avec marges), juste sous le header. */
+    .notif-panel {
+        position: fixed;
+        top: calc(env(safe-area-inset-top, 0px) + 3.5rem);
+        left: var(--mp-space-3);
+        right: var(--mp-space-3);
+        width: auto;
+        max-width: none;
+    }
+}

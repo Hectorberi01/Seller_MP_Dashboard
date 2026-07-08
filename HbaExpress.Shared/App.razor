@@ -1,0 +1,24 @@
+@inject Seller_MP_Dashboard.Services.AuthState Auth
+
+<Router AppAssembly="@typeof(App).Assembly">
+    <Found Context="routeData">
+        <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)"/>
+        <FocusOnNavigate RouteData="@routeData" Selector="h1"/>
+    </Found>
+    <NotFound>
+        <PageTitle>Page introuvable — Espace Vendeur</PageTitle>
+        @* BlankLayout (pas MainLayout) : MainLayout redirige vers /login si non
+           authentifié, ce qui masquerait le 404. La vue s'affiche donc pour tous. *@
+        <LayoutView Layout="@typeof(BlankLayout)">
+            <NotFoundView />
+        </LayoutView>
+    </NotFound>
+</Router>
+
+@code {
+    // Restaure la session (jeton) depuis le localStorage avant le premier rendu.
+    // Placé ici (et non au démarrage de l'hôte) pour fonctionner À LA FOIS en Web
+    // WASM et en MAUI Blazor Hybrid, où l'interop JS n'est prête qu'après le WebView.
+    protected override async Task OnInitializedAsync()
+        => await Auth.InitializeAsync();
+}

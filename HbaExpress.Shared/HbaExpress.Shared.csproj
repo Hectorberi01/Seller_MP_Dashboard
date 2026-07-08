@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+    <PropertyGroup>
+        <TargetFramework>net9.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <!-- On conserve l'ancien espace de noms pour ne pas réécrire tout le code
+             (les fichiers restent en « namespace Seller_MP_Dashboard.* »). -->
+        <RootNamespace>Seller_MP_Dashboard</RootNamespace>
+        <!-- Les assets wwwroot sont exposés par défaut sous _content/HbaExpress.Shared/
+             (nom du projet), ce que référencent les hôtes Web et MAUI. -->
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Plugin.Firebase" Version="4.2.1" />
+        <SupportedPlatform Include="browser" />
+        <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="9.0.4" />
+        <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="9.0.4" />
+        <PackageReference Include="Microsoft.Extensions.Http" Version="9.0.4" />
+        <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="9.0.4" />
+    </ItemGroup>
+
+</Project>

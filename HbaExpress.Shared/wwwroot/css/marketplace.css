@@ -1,0 +1,321 @@
+/* ============================================================
+   MARKETPLACE — Design System (Vendeur / Admin · Blazor)
+   Source de vérité visuelle. Mêmes tokens que web/mobile.
+   ============================================================ */
+
+:root {
+    /* --- Marque (vert / HbaExpress Pro) --- */
+    --mp-primary:        #1F8A4C;
+    --mp-primary-hover:  #177A41;
+    --mp-primary-dark:   #0F5C30;
+    --mp-primary-light:  #E8F5EE;
+    --mp-primary-400:    #34B36A;
+
+    /* --- Fonctionnelles --- */
+    --mp-action:         #639922;  /* acheter / succès */
+    --mp-action-hover:   #527E1C;
+    --mp-accent:         #EF9F27;  /* promo */
+    --mp-danger:         #E24B4A;  /* alerte / erreur */
+    --mp-info:           #185FA5;  /* information */
+
+    /* --- Neutres chauds --- */
+    --mp-surface:        #FFFFFF;  /* cartes, surfaces */
+    --mp-surface-2:      #F7F5F0;  /* surfaces secondaires */
+    --mp-bg:             #F8FAF8;  /* fond de page */
+    --mp-text:           #1C1C1A;  /* texte principal (quasi noir, lisible) */
+    --mp-text-muted:     #56554F;  /* texte atténué — assombri pour un bon contraste */
+    --mp-border:         #E5E2D8;  /* bordures fines */
+    --mp-disabled:       #D3D1C7;  /* fond désactivé */
+
+    /* --- Badges (fonds clairs + textes foncés) --- */
+    --mp-badge-stock-bg:   #EAF3DE;  --mp-badge-stock-tx:   #27500A;
+    --mp-badge-promo-bg:   #FAEEDA;  --mp-badge-promo-tx:   #633806;
+    --mp-badge-verif-bg:   #E8F5EE;  --mp-badge-verif-tx:   #0F5C30;
+    --mp-badge-rupture-bg: #FCEBEB;  --mp-badge-rupture-tx: #791F1F;
+
+    /* --- Typographie --- */
+    /* Police unique « Plus Jakarta Sans » pour tout le texte, identique à
+       l'application cliente (thème Flutter plusJakartaSansTextTheme). */
+    --mp-font-sans: "Plus Jakarta Sans", -apple-system, "Segoe UI", Roboto, sans-serif;
+    /* Titres/KPIs : même famille, on joue seulement sur la graisse (700/800). */
+    --mp-font-display: "Plus Jakarta Sans", -apple-system, "Segoe UI", Roboto, sans-serif;
+
+    /* --- Rayons (style Material 3 : plus arrondis) --- */
+    --mp-radius-sm: 8px;
+    --mp-radius-md: 12px;  /* éléments, boutons, inputs */
+    --mp-radius-lg: 16px;  /* cartes */
+    --mp-radius-xl: 20px;  /* grandes cartes, modales */
+    --mp-radius-2xl: 24px; /* héros / carte solde */
+
+    /* --- Élévation douce (ombres portées subtiles) --- */
+    --mp-shadow-sm: 0 1px 2px rgba(16, 40, 24, 0.05), 0 1px 3px rgba(16, 40, 24, 0.05);
+    --mp-shadow-md: 0 2px 6px rgba(16, 40, 24, 0.06), 0 6px 16px rgba(16, 40, 24, 0.06);
+    --mp-shadow-lg: 0 8px 30px rgba(16, 40, 24, 0.10);
+    --mp-shadow-brand: 0 10px 26px rgba(31, 138, 76, 0.28);
+
+    /* --- Tuiles d'icônes colorées (fond teinté + icône) --- */
+    --mp-tile-green-bg: #E8F5EE;  --mp-tile-green-fg: #1F8A4C;
+    --mp-tile-blue-bg:  #E6F1FB;  --mp-tile-blue-fg:  #185FA5;
+    --mp-tile-amber-bg: #FBEEDA;  --mp-tile-amber-fg: #B4700F;
+    --mp-tile-red-bg:   #FCEBEB;  --mp-tile-red-fg:   #C0392B;
+    --mp-tile-purple-bg:#EEEDFE;  --mp-tile-purple-fg:#534AB7;
+
+    /* --- Espacements (multiples de 4px) --- */
+    --mp-space-1: 4px;
+    --mp-space-2: 8px;
+    --mp-space-3: 12px;
+    --mp-space-4: 16px;
+    --mp-space-5: 20px;
+    --mp-space-6: 24px;
+    --mp-space-8: 32px;
+}
+
+/* ============================================================
+   Base
+   ============================================================ */
+html, body {
+    font-family: var(--mp-font-sans);
+    background-color: var(--mp-bg);
+    color: var(--mp-text);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4 {
+    color: var(--mp-primary-dark);
+    line-height: 1.25;
+    margin: 0;
+    font-family: var(--mp-font-display);
+    letter-spacing: -0.01em;
+}
+
+/* Grands nombres (KPIs, compteurs) en police display, chiffres tabulaires. */
+.kpi-value, .stat-value, [data-countup], .mp-display {
+    font-family: var(--mp-font-display);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+}
+
+/* Échelle typographique de la charte */
+.mp-display { font-size: 34px; font-weight: 700; }
+h1, .mp-h1   { font-size: 28px; font-weight: 600; }
+h2, .mp-h2   { font-size: 22px; font-weight: 600; }
+h3, .mp-h3   { font-size: 18px; font-weight: 600; }
+.mp-body     { font-size: 16px; font-weight: 400; }
+.mp-body-strong { font-size: 16px; font-weight: 600; }
+.mp-caption  { font-size: 13px; font-weight: 400; color: var(--mp-text-muted); }
+
+/* Chiffres tabulaires pour les prix et colonnes numériques */
+.mp-num { font-variant-numeric: tabular-nums; }
+
+/* ============================================================
+   Composants Material 3 (partagés Web + mobile)
+   ============================================================ */
+
+/* --- Tuile d'icône colorée (fond teinté + icône) --- */
+.mp-tile {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 2.75rem; height: 2.75rem;
+    border-radius: var(--mp-radius-md);
+    background: var(--mp-tile-green-bg); color: var(--mp-tile-green-fg);
+    flex-shrink: 0;
+}
+.mp-tile--sm { width: 2.25rem; height: 2.25rem; border-radius: var(--mp-radius-sm); }
+.mp-tile--round { border-radius: 999px; }
+.mp-tile--green  { background: var(--mp-tile-green-bg);  color: var(--mp-tile-green-fg); }
+.mp-tile--blue   { background: var(--mp-tile-blue-bg);   color: var(--mp-tile-blue-fg); }
+.mp-tile--amber  { background: var(--mp-tile-amber-bg);  color: var(--mp-tile-amber-fg); }
+.mp-tile--red    { background: var(--mp-tile-red-bg);    color: var(--mp-tile-red-fg); }
+.mp-tile--purple { background: var(--mp-tile-purple-bg); color: var(--mp-tile-purple-fg); }
+
+/* --- Carte solde / héros en dégradé vert --- */
+.mp-hero {
+    background: linear-gradient(135deg, var(--mp-primary), #2fae63);
+    color: #fff;
+    border-radius: var(--mp-radius-2xl);
+    padding: var(--mp-space-5);
+    box-shadow: var(--mp-shadow-brand);
+    position: relative;
+    overflow: hidden;
+}
+.mp-hero-label { font-size: 13px; opacity: 0.9; letter-spacing: 0.02em; }
+.mp-hero-value { font-family: var(--mp-font-display); font-size: 30px; font-weight: 700; line-height: 1.1; margin-top: 2px; letter-spacing: -0.01em; }
+.mp-hero-sub { font-size: 13px; opacity: 0.85; margin-top: var(--mp-space-3); text-transform: uppercase; letter-spacing: 0.04em; }
+
+/* --- Carte-statistique (tuile + libellé + valeur) --- */
+.mp-stat {
+    background: var(--mp-surface);
+    border: 1px solid var(--mp-border);
+    border-radius: var(--mp-radius-lg);
+    box-shadow: var(--mp-shadow-sm);
+    padding: var(--mp-space-4);
+    display: flex; flex-direction: column; gap: var(--mp-space-2);
+}
+.mp-stat-label { font-size: 13px; color: var(--mp-text-muted); }
+.mp-stat-value { font-family: var(--mp-font-display); font-size: 20px; font-weight: 600; color: var(--mp-text); letter-spacing: -0.01em; }
+
+/* --- Liste de cartes (activité, transactions) --- */
+.mp-list { display: flex; flex-direction: column; gap: var(--mp-space-2); }
+.mp-list-row {
+    display: flex; align-items: center; gap: var(--mp-space-3);
+    padding: var(--mp-space-3);
+    background: var(--mp-surface);
+    border: 1px solid var(--mp-border);
+    border-radius: var(--mp-radius-lg);
+    box-shadow: var(--mp-shadow-sm);
+}
+.mp-list-main { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
+.mp-list-title { font-size: 15px; font-weight: 600; color: var(--mp-text); }
+.mp-list-sub { font-size: 12px; color: var(--mp-text-muted); }
+.mp-list-trail { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+/* --- Pastille de statut arrondie --- */
+.mp-pill {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 12px; font-weight: 600;
+    padding: 3px 10px; border-radius: 999px;
+    background: var(--mp-surface-2); color: var(--mp-text-muted);
+}
+.mp-pill--green { background: var(--mp-badge-stock-bg);   color: var(--mp-badge-stock-tx); }
+.mp-pill--amber { background: var(--mp-badge-promo-bg);   color: var(--mp-badge-promo-tx); }
+.mp-pill--red   { background: var(--mp-badge-rupture-bg); color: var(--mp-badge-rupture-tx); }
+.mp-pill--blue  { background: var(--mp-tile-blue-bg);     color: var(--mp-tile-blue-fg); }
+
+/* Montants signés */
+.mp-amount-pos { color: var(--mp-action); font-weight: 700; }
+.mp-amount-neg { color: var(--mp-danger); font-weight: 700; }
+
+a {
+    color: var(--mp-primary);
+    text-decoration: none;
+}
+a:hover { color: var(--mp-primary-hover); text-decoration: underline; }
+
+/* ============================================================
+   Tableaux
+   ============================================================ */
+.mp-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+
+.mp-table thead th {
+    text-align: left;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--mp-text-muted);
+    padding: var(--mp-space-3) var(--mp-space-4);
+    border-bottom: 0.5px solid var(--mp-border);
+    white-space: nowrap;
+}
+
+.mp-table tbody td {
+    padding: var(--mp-space-3) var(--mp-space-4);
+    border-bottom: 0.5px solid var(--mp-border);
+    vertical-align: middle;
+}
+
+.mp-table tbody tr:last-child td { border-bottom: 0; }
+.mp-table tbody tr:hover { background-color: var(--mp-surface-2); }
+
+.mp-table .num { text-align: right; }
+.mp-table .actions-col { text-align: right; white-space: nowrap; }
+
+/* ============================================================
+   Formulaires (partagés : pages + modals)
+   ============================================================ */
+.mp-form { display: flex; flex-direction: column; gap: var(--mp-space-3); }
+.mp-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--mp-space-3); }
+
+.mp-field { display: flex; flex-direction: column; gap: var(--mp-space-1); }
+.mp-field label { font-size: 14px; font-weight: 500; }
+
+.mp-input, .mp-select, .mp-textarea {
+    font-family: var(--mp-font-sans);
+    font-size: 15px;
+    padding: 10px 12px;
+    border: 1px solid var(--mp-border);
+    border-radius: var(--mp-radius-md);
+    background-color: var(--mp-surface);
+    color: var(--mp-text);
+    width: 100%;
+}
+.mp-textarea { resize: vertical; }
+.mp-input:focus, .mp-select:focus, .mp-textarea:focus {
+    outline: none;
+    border-color: var(--mp-primary);
+}
+
+@media (max-width: 520px) {
+    .mp-form-row { grid-template-columns: 1fr; }
+}
+
+/* ============================================================
+   Couche « fun » : micro-interactions, apparitions, toasts, confetti
+   (gérée par js/hbafx.js). Respecte prefers-reduced-motion.
+   ============================================================ */
+
+/* Apparition au défilement (classe posée par hbafx). Déclaré AVANT le survol
+   des cartes pour que l'élévation au hover l'emporte (même spécificité). */
+.fx-reveal { opacity: 0; transform: translateY(10px); transition: opacity 0.5s ease, transform 0.5s ease; will-change: opacity, transform; }
+.fx-reveal.fx-in { opacity: 1; transform: none; }
+
+/* Micro-interactions : élévation douce des cartes, pression des boutons. */
+.mp-card { transition: transform 0.18s ease, box-shadow 0.18s ease; }
+.mp-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06); }
+button:active:not(:disabled),
+.mp-btn:active:not(:disabled) { transform: scale(0.97); }
+button, .mp-btn { transition: transform 0.1s ease, background-color 0.15s ease, border-color 0.15s ease; }
+
+/* Calque confetti (canvas plein écran, non cliquable). */
+.fx-confetti { position: fixed; inset: 0; pointer-events: none; z-index: 9999; }
+
+/* Toasts */
+.fx-toasts {
+    position: fixed;
+    top: 1rem; right: 1rem;
+    z-index: 9998;
+    display: flex; flex-direction: column; gap: var(--mp-space-2);
+    max-width: min(360px, calc(100vw - 2rem));
+    pointer-events: none;
+}
+.fx-toast {
+    pointer-events: auto;
+    display: flex; align-items: center; gap: var(--mp-space-2);
+    padding: 12px 14px;
+    background: var(--mp-surface);
+    border: 0.5px solid var(--mp-border);
+    border-left: 3px solid var(--mp-text-muted);
+    border-radius: var(--mp-radius-md);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+    font-size: 14px; color: var(--mp-text);
+    opacity: 0; transform: translateX(16px);
+    transition: opacity 0.25s ease, transform 0.25s ease;
+    cursor: pointer;
+}
+.fx-toast.fx-in { opacity: 1; transform: none; }
+.fx-toast.fx-out { opacity: 0; transform: translateX(16px); }
+.fx-toast-ico { display: inline-flex; flex-shrink: 0; }
+.fx-toast-msg { line-height: 1.4; }
+.fx-toast-success { border-left-color: var(--mp-primary); }
+.fx-toast-success .fx-toast-ico { color: var(--mp-primary); }
+.fx-toast-error { border-left-color: var(--mp-danger); }
+.fx-toast-error .fx-toast-ico { color: var(--mp-danger); }
+.fx-toast-info { border-left-color: var(--mp-info); }
+.fx-toast-info .fx-toast-ico { color: var(--mp-info); }
+
+/* Toasts au-dessus de la barre d'onglets sur mobile. */
+@media (max-width: 640.98px) {
+    .fx-toasts { top: auto; bottom: calc(4.75rem + env(safe-area-inset-bottom, 0)); right: 1rem; left: 1rem; max-width: none; }
+    .fx-toast, .fx-toast.fx-out { transform: translateY(16px); }
+    .fx-toast.fx-in { transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .mp-card, .mp-card:hover, button, .mp-btn { transition: none; transform: none; box-shadow: none; }
+    .mp-card:hover { box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06); }
+    .fx-reveal { opacity: 1; transform: none; transition: none; }
+}

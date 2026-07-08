@@ -1,0 +1,333 @@
+@page "/messagerie"
+@using Microsoft.AspNetCore.SignalR.Client
+@using Microsoft.Extensions.Configuration
+@using Seller_MP_Dashboard.Services
+@inject ISellerApi Api
+@inject AuthState Auth
+@inject IConfiguration Configuration
+@implements IAsyncDisposable
+
+<PageTitle>Messagerie — Espace Vendeur</PageTitle>
+
+<PageHeader Title="Messagerie"
+            Subtitle="Échangez avec vos clients sur leurs commandes." />
+
+@if (loadError is not null)
+{
+    <ErrorNotice Title="Messagerie indisponible" Message="@loadError" OnRetry="Load" />
+}
+else if (conversations is null)
+{
+    <p class="mp-caption">Chargement…</p>
+}
+else
+{
+    <div class="msg-layout @(selected is null ? null : "has-selection")">
+        <MpCard NoPadding="true">
+            <ChildContent>
+                @if (conversations.Count > 0)
+                {
+                    <div class="conv-search-wrap">
+                        <input class="mp-input conv-search" placeholder="Rechercher une conversation…"
+                               value="@convSearch" @oninput="OnConvSearchChanged" />
+                    </div>
+                }
+                @if (conversations.Count == 0)
+                {
+                    <div class="conv-empty">
+                        <span class="conv-empty-ico">
+                            <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>
+                        </span>
+                        <span class="mp-body-strong">Aucune conversation</span>
+                        <span class="mp-caption">Les messages de vos clients apparaîtront ici.</span>
+                    </div>
+                }
+                else if (FilteredConversations.Count == 0)
+                {
+                    <div class="conv-empty">
+                        <span class="conv-empty-ico">
+                            <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>
+                        </span>
+                        <span class="mp-body-strong">Aucune conversation</span>
+                        <span class="mp-caption">Aucune conversation ne correspond à votre recherche.</span>
+                    </div>
+                }
+                <div class="conv-list">
+                    @foreach (var c in FilteredConversations)
+                    {
+                        <button class="conv-item @(c.Id == selectedId ? "is-active" : null)" @onclick="@(() => Select(c.Id))">
+                            <span class="conv-avatar" aria-hidden="true">@Initials(c.Customer)</span>
+                            <span class="conv-main">
+                                <span class="conv-top">
+                                    <span class="conv-name">@c.Customer</span>
+                                    @if (c.Unread > 0)
+                                    {
+                                        <span class="conv-badge mp-num">@c.Unread</span>
+                                    }
+                                </span>
+                                <span class="conv-subject mp-caption">@c.Subject</span>
+                                <span class="conv-preview">@c.LastMessage</span>
+                            </span>
+                        </button>
+                    }
+                </div>
+            </ChildContent>
+        </MpCard>
+
+        <MpCard NoPadding="true">
+            <ChildContent>
+                @if (selected is null)
+                {
+                    <div class="thread-empty">
+                        <span class="thread-empty-ico">
+                            <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                        </span>
+                        <span class="mp-body-strong">Aucune conversation sélectionnée</span>
+                        <span class="mp-caption">Choisissez une discussion à gauche pour l'afficher.</span>
+                    </div>
+                }
+                else
+                {
+                    <div class="thread">
+                        <div class="thread-head">
+                            <button type="button" class="thread-back" @onclick="Deselect" aria-label="Retour aux conversations">
+                                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+                            </button>
+                            <span class="thread-avatar" aria-hidden="true">@Initials(selected.Customer)</span>
+                            <span class="thread-head-main">
+                                <span class="thread-name">@selected.Customer</span>
+                                <span class="mp-caption">@selected.Subject</span>
+                            </span>
+                        </div>
+                        <div class="thread-body">
+                            @if (messages is not null)
+                            {
+                                @foreach (var m in messages)
+                                {
+                                    <div class="bubble-row @(m.FromSeller ? "me" : "them")">
+                                        <div class="bubble">
+                                            <p>@m.Body</p>
+                                            <span class="bubble-time mp-num">@m.SentAt.ToString("dd/MM HH:mm")</span>
+                                        </div>
+                                    </div>
+                                }
+                            }
+                        </div>
+                        <div class="thread-compose">
+                            <input class="mp-input" @bind="draft" @bind:event="oninput"
+                                   @onkeydown="OnKey" placeholder="Votre message…" />
+                            <MpButton Variant="ButtonVariant.Primary" OnClick="Send" Disabled="@string.IsNullOrWhiteSpace(draft)">Envoyer</MpButton>
+                        </div>
+                    </div>
+                }
+            </ChildContent>
+        </MpCard>
+    </div>
+}
+
+<style>
+    .msg-layout { display: grid; grid-template-columns: 320px 1fr; gap: var(--mp-space-4); align-items: stretch; height: 70vh; }
+    @@media (min-width: 641px) and (max-width: 860px) { .msg-layout { grid-template-columns: 260px 1fr; } }
+
+    /* Mobile : maître/détail. On voit la LISTE ; on tape une conversation → le FIL
+       en plein écran avec bouton retour (comme une app de messagerie). */
+    @@media (max-width: 640.98px) {
+        .msg-layout { grid-template-columns: 1fr; gap: 0; height: auto; }
+        .msg-layout > :nth-child(2) { display: none; }        /* fil masqué par défaut */
+        .msg-layout.has-selection > :nth-child(1) { display: none; }  /* liste masquée si sélection */
+        .msg-layout.has-selection > :nth-child(2) { display: block; height: calc(100dvh - 11rem); }
+        .thread-back { display: inline-flex; }
+    }
+
+    .conv-search-wrap { padding: var(--mp-space-3) var(--mp-space-4); border-bottom: 0.5px solid var(--mp-border); }
+    .conv-search { width: 100%; }
+
+    .conv-list { display: flex; flex-direction: column; }
+    .conv-item {
+        appearance: none; cursor: pointer; text-align: left;
+        background: none; border: none;
+        border-bottom: 0.5px solid var(--mp-border);
+        padding: var(--mp-space-3) var(--mp-space-4);
+        display: flex; flex-direction: row; align-items: center; gap: var(--mp-space-3);
+        font-family: var(--mp-font-sans); color: var(--mp-text);
+    }
+    .conv-item:hover { background-color: var(--mp-surface-2); }
+    .conv-item.is-active { background-color: var(--mp-primary-light); }
+    .conv-avatar, .thread-avatar {
+        flex-shrink: 0; width: 42px; height: 42px; border-radius: 999px;
+        background-color: var(--mp-primary-light); color: var(--mp-primary-dark);
+        display: inline-flex; align-items: center; justify-content: center;
+        font-weight: 700; font-size: 14px; letter-spacing: .02em;
+    }
+    .conv-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+    .conv-top { display: flex; align-items: center; justify-content: space-between; gap: var(--mp-space-2); }
+    .conv-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .conv-subject { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .conv-badge {
+        background-color: var(--mp-primary); color: #fff;
+        font-size: 11px; font-weight: 600;
+        min-width: 18px; height: 18px; padding: 0 5px;
+        border-radius: 999px; display: inline-flex; align-items: center; justify-content: center;
+    }
+    .conv-preview { font-size: 13px; color: var(--mp-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .conv-empty { display: flex; flex-direction: column; align-items: center; gap: var(--mp-space-1); text-align: center; padding: var(--mp-space-8) var(--mp-space-4); }
+    .conv-empty-ico { color: var(--mp-text-muted); display: inline-flex; margin-bottom: var(--mp-space-1); }
+
+    .thread { display: flex; flex-direction: column; height: 100%; }
+    .thread-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--mp-space-1); height: 100%; text-align: center; padding: var(--mp-space-8); }
+    .thread-empty-ico { color: var(--mp-text-muted); display: inline-flex; margin-bottom: var(--mp-space-1); }
+    .thread-head { padding: var(--mp-space-3) var(--mp-space-4); border-bottom: 0.5px solid var(--mp-border); display: flex; flex-direction: row; align-items: center; gap: var(--mp-space-3); }
+    .thread-head-main { display: flex; flex-direction: column; min-width: 0; }
+    .thread-name { font-weight: 600; }
+    .thread-back {
+        display: none; /* visible en mobile uniquement */
+        appearance: none; border: none; background: transparent; cursor: pointer;
+        width: 34px; height: 34px; border-radius: var(--mp-radius-md);
+        align-items: center; justify-content: center; color: var(--mp-text); flex-shrink: 0;
+    }
+    .thread-back:hover { background-color: var(--mp-surface-2); }
+    .thread-body { flex: 1; overflow-y: auto; padding: var(--mp-space-4); display: flex; flex-direction: column; gap: var(--mp-space-2); }
+
+    .bubble-row { display: flex; }
+    .bubble-row.me { justify-content: flex-end; }
+    .bubble {
+        max-width: 70%;
+        padding: var(--mp-space-2) var(--mp-space-3);
+        border-radius: var(--mp-radius-lg);
+    }
+    .bubble p { margin: 0; }
+    .bubble-time { font-size: 11px; color: var(--mp-text-muted); display: block; margin-top: 2px; }
+    .bubble-row.them .bubble { background-color: var(--mp-surface-2); border-top-left-radius: 2px; }
+    .bubble-row.me .bubble { background-color: var(--mp-primary-light); border-top-right-radius: 2px; }
+
+    .thread-compose { display: flex; gap: var(--mp-space-2); padding: var(--mp-space-3) var(--mp-space-4); border-top: 0.5px solid var(--mp-border); }
+    .mp-input {
+        flex: 1; font-family: var(--mp-font-sans); font-size: 15px;
+        padding: 10px 12px; border: 1px solid var(--mp-border);
+        border-radius: var(--mp-radius-md); background-color: var(--mp-surface); color: var(--mp-text);
+    }
+    .mp-input:focus { outline: none; border-color: var(--mp-primary); }
+</style>
+
+@code {
+    private IReadOnlyList<Conversation>? conversations;
+    private Conversation? selected;
+    private Guid selectedId = Guid.Empty;
+    private IReadOnlyList<Message>? messages;
+    private string draft = "";
+    private string? loadError;
+    private HubConnection? _hub;
+
+    // Recherche des conversations (côté client) — n'affecte pas le hub ni la sélection.
+    private string convSearch = "";
+    private void OnConvSearchChanged(ChangeEventArgs e) => convSearch = e.Value?.ToString() ?? "";
+
+    // Retour à la liste (mobile) : on désélectionne la conversation courante.
+    private void Deselect() { selected = null; selectedId = Guid.Empty; }
+
+    // Initiales pour l'avatar (1 ou 2 lettres).
+    private static string Initials(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return "?";
+        var parts = name.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 1)
+            return parts[0].Substring(0, 1).ToUpperInvariant();
+        return string.Concat(parts[0][0], parts[^1][0]).ToUpperInvariant();
+    }
+
+    private List<Conversation> FilteredConversations
+    {
+        get
+        {
+            if (conversations is null) return new();
+            if (string.IsNullOrWhiteSpace(convSearch)) return conversations.ToList();
+            var s = convSearch.Trim();
+            return conversations.Where(c =>
+                   (c.Customer ?? "").Contains(s, StringComparison.OrdinalIgnoreCase)
+                || (c.Subject ?? "").Contains(s, StringComparison.OrdinalIgnoreCase)
+                || (c.LastMessage ?? "").Contains(s, StringComparison.OrdinalIgnoreCase)).ToList();
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Load();
+        await ConnectRealtime();
+    }
+
+    private async Task ConnectRealtime()
+    {
+        var baseUrl = Configuration["Api:BaseUrl"];
+        if (string.IsNullOrWhiteSpace(baseUrl)) return;
+
+        try
+        {
+            _hub = new HubConnectionBuilder()
+                .WithUrl($"{baseUrl.TrimEnd('/')}/seller/hubs/chat",
+                    options => options.AccessTokenProvider = () => Task.FromResult(Auth.AccessToken))
+                .WithAutomaticReconnect()
+                .Build();
+
+            _hub.On<object>("message", async _ =>
+            {
+                if (selectedId != Guid.Empty)
+                {
+                    messages = await Api.GetMessagesAsync(selectedId);
+                    conversations = await Api.ListConversationsAsync();
+                    await InvokeAsync(StateHasChanged);
+                }
+            });
+
+            await _hub.StartAsync();
+            if (selectedId != Guid.Empty)
+                await _hub.InvokeAsync("JoinConversation", selectedId.ToString());
+        }
+        catch
+        {
+            // Repli silencieux : la messagerie reste utilisable (rechargement manuel).
+        }
+    }
+
+    private async Task Load()
+    {
+        try
+        {
+            loadError = null;
+            conversations = await Api.ListConversationsAsync();
+            if (conversations.Count > 0) await Select(conversations[0].Id);
+        }
+        catch
+        {
+            loadError = "Impossible de joindre le serveur (BFF injoignable ou session expirée).";
+        }
+    }
+
+    private async Task Select(Guid id)
+    {
+        selectedId = id;
+        selected = conversations?.FirstOrDefault(c => c.Id == id);
+        messages = await Api.GetMessagesAsync(id);
+
+        if (_hub is { State: HubConnectionState.Connected })
+            await _hub.InvokeAsync("JoinConversation", id.ToString());
+    }
+
+    private async Task Send()
+    {
+        if (string.IsNullOrWhiteSpace(draft) || selected is null) return;
+        await Api.SendAsync(selected.Id, new SendRequest(draft));
+        draft = "";
+        messages = await Api.GetMessagesAsync(selected.Id);
+    }
+
+    private async Task OnKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await Send();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_hub is not null) await _hub.DisposeAsync();
+    }
+}

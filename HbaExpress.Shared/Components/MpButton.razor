@@ -1,0 +1,35 @@
+@* Bouton conforme à la charte — une seule action (vert) par écran. *@
+
+<button type="@Type"
+        class="mp-btn @VariantClass @(FullWidth ? "mp-btn-block" : null)"
+        disabled="@Disabled"
+        @onclick="OnClick">
+    @if (!string.IsNullOrEmpty(Icon))
+    {
+        <span class="mp-btn-icon" aria-hidden="true"><AppIcon Name="@Icon" Size="16" /></span>
+    }
+    @if (ChildContent is not null)
+    {
+        <span class="mp-btn-label">@ChildContent</span>
+    }
+</button>
+
+@code {
+    [Parameter] public ButtonVariant Variant { get; set; } = ButtonVariant.Primary;
+    [Parameter] public string Type { get; set; } = "button";
+    [Parameter] public string? Icon { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public bool FullWidth { get; set; }
+    [Parameter] public EventCallback OnClick { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private string VariantClass => Variant switch
+    {
+        ButtonVariant.Action    => "mp-btn-action",
+        ButtonVariant.Primary   => "mp-btn-primary",
+        ButtonVariant.Secondary => "mp-btn-secondary",
+        ButtonVariant.Tertiary  => "mp-btn-tertiary",
+        ButtonVariant.Danger    => "mp-btn-danger",
+        _                       => "mp-btn-primary"
+    };
+}

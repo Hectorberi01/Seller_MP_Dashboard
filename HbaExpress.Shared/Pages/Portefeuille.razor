@@ -1,0 +1,352 @@
+@page "/portefeuille"
+@inject ISellerApi Api
+@inject Seller_MP_Dashboard.Services.ToastService Toast
+
+<PageTitle>Portefeuille — Espace Vendeur</PageTitle>
+
+<PageHeader Title="Portefeuille"
+            Subtitle="Vos soldes et vos retraits vers votre compte Mobile Money." />
+
+@if (loadError is not null)
+{
+    <ErrorNotice Title="Portefeuille indisponible" Message="@loadError" OnRetry="Load" />
+}
+else if (wallet is null)
+{
+    <p class="mp-caption">Chargement…</p>
+}
+else
+{
+    <div class="mp-hero wal-hero">
+        <span class="mp-hero-label">Solde disponible</span>
+        <div class="mp-hero-value mp-num">@Money(wallet.AvailableBalance)</div>
+        <span class="mp-hero-sub">En attente (escrow) · @Money(wallet.PendingBalance)</span>
+    </div>
+    <div class="wal-substats">
+        <div class="mp-stat">
+            <span class="mp-tile mp-tile--sm mp-tile--amber"><AppIcon Name="receipt" Size="18" /></span>
+            <span class="mp-stat-label">En attente de retrait</span>
+            <div class="mp-stat-value mp-num">@Money(wallet.PendingWithdrawal)</div>
+        </div>
+        <div class="mp-stat">
+            <span class="mp-tile mp-tile--sm mp-tile--blue" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+            </span>
+            <span class="mp-stat-label">Solde à venir</span>
+            <div class="mp-stat-value mp-num">@Money(wallet.PendingBalance)</div>
+        </div>
+    </div>
+
+    <MpCard Title="Demander un retrait">
+        <ChildContent>
+            <div class="wal-withdraw">
+                <div class="wal-field">
+                    <span class="wal-input-suffix">
+                        <input type="number" min="0" step="500" class="mp-input" placeholder="Montant à retirer"
+                               @bind="withdrawAmount" @bind:event="oninput" disabled="@busy" />
+                        <span class="wal-cur">XOF</span>
+                    </span>
+                    <MpButton Variant="ButtonVariant.Action"
+                              Disabled="@(busy || withdrawAmount <= 0 || withdrawAmount > wallet.AvailableBalance)"
+                              OnClick="Withdraw">
+                        @(busy ? "Traitement…" : "Retirer")
+                    </MpButton>
+                </div>
+                <div class="wal-quick">
+                    @foreach (var pct in new[] { 0.25m, 0.5m, 1m })
+                    {
+                        <button type="button" class="wal-chip" disabled="@busy"
+                                @onclick="() => SetQuick(pct)">@($"{pct * 100:0}%")</button>
+                    }
+                </div>
+                @if (message is not null)
+                {
+                    <div class="wal-msg @(messageOk ? "ok" : "err")">@message</div>
+                }
+                <p class="mp-caption">Votre demande est mise en attente de validation. Le versement Mobile Money (via FedaPay) est effectué une fois la demande approuvée.</p>
+            </div>
+        </ChildContent>
+    </MpCard>
+
+    <div class="wal-grid">
+        <MpCard Title="Mouvements récents" NoPadding="true">
+            <ChildContent>
+                <div class="wal-movelist">
+                    @if (transactions.Count == 0)
+                    {
+                        <div class="wal-empty">
+                            <span class="wal-empty-ico"><AppIcon Name="receipt" Size="28" StrokeWidth="1.5" /></span>
+                            <span class="mp-body-strong">Aucun mouvement</span>
+                            <span class="mp-caption">Vos ventes et retraits apparaîtront ici.</span>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="mp-list">
+                            @foreach (var t in PagedTransactions)
+                            {
+                                var credit = t.Direction == "Credit";
+                                <div class="mp-list-row">
+                                    <span class="mp-tile mp-tile--round @(credit ? "mp-tile--green" : "mp-tile--red")" aria-hidden="true">
+                                        @if (credit)
+                                        {
+                                            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                                        }
+                                        else
+                                        {
+                                            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                                        }
+                                    </span>
+                                    <div class="mp-list-main">
+                                        <span class="mp-list-title">@ReasonLabel(t.Reason)</span>
+                                        <span class="mp-list-sub mp-num">@Format.Date(t.CreatedAtUtc) · @AccountLabel(t.Account)</span>
+                                    </div>
+                                    <div class="mp-list-trail mp-num @(credit ? "mp-amount-pos" : "mp-amount-neg")">
+                                        @(credit ? "+" : "−")@Money(t.Amount)
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                        @if (TxPageCount > 1)
+                        {
+                            <div class="wal-pager">
+                                <button class="wal-page-btn" type="button" disabled="@(_txPage <= 1)" @onclick="TxPrev">Précédent</button>
+                                <span class="mp-caption">Page @_txPage / @TxPageCount</span>
+                                <button class="wal-page-btn" type="button" disabled="@(_txPage >= TxPageCount)" @onclick="TxNext">Suivant</button>
+                            </div>
+                        }
+                    }
+                </div>
+            </ChildContent>
+        </MpCard>
+
+        <MpCard Title="Historique des retraits" NoPadding="true">
+            <ChildContent>
+                <div class="wal-movelist">
+                    @if (withdrawals.Count == 0)
+                    {
+                        <div class="wal-empty">
+                            <span class="wal-empty-ico"><AppIcon Name="wallet" Size="28" StrokeWidth="1.5" /></span>
+                            <span class="mp-body-strong">Aucun retrait</span>
+                            <span class="mp-caption">Demandez un retrait dès que votre solde est disponible.</span>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="mp-list">
+                            @foreach (var w in PagedWithdrawals)
+                            {
+                                <div class="mp-list-row">
+                                    <span class="mp-tile mp-tile--round mp-tile--green" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>
+                                    </span>
+                                    <div class="mp-list-main">
+                                        <span class="mp-list-title mp-num">@Money(w.Amount)</span>
+                                        <span class="mp-list-sub mp-num">@Format.Date(w.CreatedAtUtc)</span>
+                                    </div>
+                                    <div class="mp-list-trail">@StatusBadge(w.Status)</div>
+                                </div>
+                            }
+                        </div>
+                        @if (WdPageCount > 1)
+                        {
+                            <div class="wal-pager">
+                                <button class="wal-page-btn" type="button" disabled="@(_wdPage <= 1)" @onclick="WdPrev">Précédent</button>
+                                <span class="mp-caption">Page @_wdPage / @WdPageCount</span>
+                                <button class="wal-page-btn" type="button" disabled="@(_wdPage >= WdPageCount)" @onclick="WdNext">Suivant</button>
+                            </div>
+                        }
+                    }
+                </div>
+            </ChildContent>
+        </MpCard>
+    </div>
+}
+
+<style>
+    .wal-hero { margin-bottom: var(--mp-space-3); }
+    .wal-substats { display: grid; grid-template-columns: 1fr 1fr; gap: var(--mp-space-3); margin-bottom: var(--mp-space-4); }
+
+    /* Liste de mouvements : rangées propres dans la carte (pas de cartes-dans-carte). */
+    .wal-movelist { padding: var(--mp-space-1) var(--mp-space-4) var(--mp-space-2); }
+    .wal-movelist .mp-list { gap: 0; }
+    .wal-movelist .mp-list-row { border: none; box-shadow: none; border-radius: 0; background: transparent; padding-left: 0; padding-right: 0; border-bottom: 1px solid var(--mp-border); }
+    .wal-movelist .mp-list-row:last-child { border-bottom: none; }
+
+    .wal-balances {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: var(--mp-space-4);
+        margin-bottom: var(--mp-space-6);
+    }
+    .wal-balance {
+        display: flex; align-items: center; gap: var(--mp-space-4);
+        background-color: var(--mp-surface);
+        border: 0.5px solid var(--mp-border);
+        border-radius: var(--mp-radius-lg);
+        padding: var(--mp-space-4) var(--mp-space-6);
+    }
+    .wal-balance.primary { border-color: var(--mp-primary); background-color: var(--mp-primary-light); }
+    .wal-balance-ico {
+        flex: 0 0 auto; width: 46px; height: 46px; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 22px; color: #fff;
+    }
+    .wal-balance-ico.pending  { background-color: var(--mp-primary-400); }
+    .wal-balance-ico.avail    { background-color: var(--mp-action); }
+    .wal-balance-ico.withdraw { background-color: var(--mp-primary); }
+    .wal-balance-body { display: flex; flex-direction: column; gap: 2px; }
+    .wal-balance-label { font-size: 13px; color: var(--mp-text-muted); }
+    .wal-balance-value { font-size: 26px; font-weight: 700; color: var(--mp-primary-dark); line-height: 1.1; }
+
+    .wal-withdraw { display: flex; flex-direction: column; gap: var(--mp-space-3); }
+    .wal-field { display: flex; gap: var(--mp-space-3); align-items: stretch; flex-wrap: wrap; }
+    .wal-input-suffix { position: relative; flex: 1 1 220px; display: flex; align-items: center; }
+    .wal-input-suffix .mp-input { width: 100%; padding-right: 52px; }
+    .wal-cur { position: absolute; right: 14px; font-size: 13px; color: var(--mp-text-muted); pointer-events: none; }
+
+    .wal-quick { display: flex; gap: var(--mp-space-2); }
+    .wal-chip {
+        border: 0.5px solid var(--mp-border); background-color: var(--mp-surface-2);
+        border-radius: 999px; padding: 4px 14px; font-size: 13px; cursor: pointer;
+        color: var(--mp-text); transition: all .15s ease;
+    }
+    .wal-chip:hover:not(:disabled) { border-color: var(--mp-primary); color: var(--mp-primary); }
+    .wal-chip:disabled { opacity: .5; cursor: default; }
+
+    .wal-msg { border-radius: var(--mp-radius-md); padding: var(--mp-space-3) var(--mp-space-4); font-size: 14px; }
+    .wal-msg.ok  { background-color: #EEF6E4; color: var(--mp-action-hover); border: 0.5px solid #CDE3B0; }
+    .wal-msg.err { background-color: #FCECEC; color: var(--mp-danger); border: 0.5px solid #F3C4C4; }
+
+    .wal-grid { display: grid; grid-template-columns: 1.6fr 1fr; gap: var(--mp-space-4); align-items: start; margin-top: var(--mp-space-4); }
+    @@media (max-width: 900px) { .wal-grid { grid-template-columns: 1fr; } }
+
+    .mp-table .pos { color: var(--mp-action); font-weight: 600; }
+    .mp-table .neg { color: var(--mp-danger); font-weight: 600; }
+    .mp-pad { padding: var(--mp-space-4); }
+
+    .wal-empty { display: flex; flex-direction: column; align-items: center; gap: var(--mp-space-1); text-align: center; padding: var(--mp-space-6) var(--mp-space-4); }
+    .wal-empty-ico { color: var(--mp-text-muted); display: inline-flex; margin-bottom: var(--mp-space-1); }
+
+    .wal-pager { display: flex; align-items: center; justify-content: center; gap: var(--mp-space-3); padding: var(--mp-space-3) 0 var(--mp-space-1); border-top: 0.5px solid var(--mp-border); margin-top: var(--mp-space-1); }
+    .wal-page-btn { border: 0.5px solid var(--mp-border); background: var(--mp-surface); border-radius: var(--mp-radius-md); padding: 5px 14px; font-size: 13px; cursor: pointer; color: var(--mp-text); }
+    .wal-page-btn:hover:not(:disabled) { border-color: var(--mp-primary); color: var(--mp-primary); }
+    .wal-page-btn:disabled { opacity: .5; cursor: default; }
+</style>
+
+@code {
+    private SellerWalletDto? wallet;
+    private List<WalletTxDto> transactions = new();
+    private List<WithdrawalDto> withdrawals = new();
+    private decimal withdrawAmount;
+    private bool busy;
+    private string? loadError;
+    private string? message;
+    private bool messageOk;
+
+    // --- Pagination des deux listes (6 par page, pour limiter le scroll) ---
+    private const int WalletPageSize = 6;
+    private int _txPage = 1;
+    private int _wdPage = 1;
+
+    private int TxPageCount => Math.Max(1, (int)Math.Ceiling(transactions.Count / (double)WalletPageSize));
+    private IEnumerable<WalletTxDto> PagedTransactions =>
+        transactions.Skip((Math.Min(_txPage, TxPageCount) - 1) * WalletPageSize).Take(WalletPageSize);
+    private void TxPrev() { if (_txPage > 1) _txPage--; }
+    private void TxNext() { if (_txPage < TxPageCount) _txPage++; }
+
+    private int WdPageCount => Math.Max(1, (int)Math.Ceiling(withdrawals.Count / (double)WalletPageSize));
+    private IEnumerable<WithdrawalDto> PagedWithdrawals =>
+        withdrawals.Skip((Math.Min(_wdPage, WdPageCount) - 1) * WalletPageSize).Take(WalletPageSize);
+    private void WdPrev() { if (_wdPage > 1) _wdPage--; }
+    private void WdNext() { if (_wdPage < WdPageCount) _wdPage++; }
+
+    protected override async Task OnInitializedAsync() => await Load();
+
+    private async Task Load()
+    {
+        loadError = null;
+        try
+        {
+            wallet = await Api.GetWalletAsync();
+            transactions = (await Api.GetWalletTransactionsAsync()).ToList();
+            withdrawals = (await Api.ListWithdrawalsAsync()).ToList();
+            _txPage = 1;
+            _wdPage = 1;
+        }
+        catch (Exception ex)
+        {
+            loadError = ex.Message;
+        }
+    }
+
+    private void SetQuick(decimal pct)
+    {
+        if (wallet is null) return;
+        withdrawAmount = Math.Round(wallet.AvailableBalance * pct, 0);
+    }
+
+    private async Task Withdraw()
+    {
+        message = null;
+        busy = true;
+        try
+        {
+            var w = await Api.RequestWithdrawalAsync(withdrawAmount);
+            messageOk = w.Status != "Failed";
+            message = messageOk
+                ? $"Demande de retrait de {Money(w.Amount)} enregistrée. Elle sera versée après validation par l'administrateur."
+                : $"Retrait refusé : {w.FailureReason}";
+            if (messageOk)
+            {
+                await Toast.Success($"Demande de retrait de {Money(w.Amount)} enregistrée 🎉");
+                await Toast.Celebrate();
+            }
+            else
+            {
+                await Toast.Error(message);
+            }
+            withdrawAmount = 0;
+            await Load();
+        }
+        catch (Exception ex)
+        {
+            messageOk = false;
+            message = "Échec du retrait : " + ex.Message;
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private static string Money(decimal v) => Format.Xof((double)v);
+
+    private static string AccountLabel(string a) => a switch
+    {
+        "Pending" => "Solde à venir",
+        "Available" => "Solde principal",
+        _ => a
+    };
+
+    private static string ReasonLabel(string r) => r switch
+    {
+        "order_confirmed" => "Vente confirmée",
+        "delivery_release" => "Livraison confirmée",
+        "withdrawal" => "Retrait",
+        "withdrawal_request" => "Demande de retrait",
+        "withdrawal_refund" => "Retrait recrédité",
+        "withdrawal_reject" => "Retrait refusé",
+        _ => "Mouvement"
+    };
+
+    private RenderFragment StatusBadge(string status) => status switch
+    {
+        "Completed" => @<MpBadge Variant="BadgeVariant.Stock" Icon="●">Payé</MpBadge>,
+        "Requested" => @<MpBadge Variant="BadgeVariant.Promo" Icon="●">En attente</MpBadge>,
+        "Pending"   => @<MpBadge Variant="BadgeVariant.Promo" Icon="●">En attente</MpBadge>,
+        "Rejected"  => @<MpBadge Variant="BadgeVariant.Neutral" Icon="●">Refusé</MpBadge>,
+        "Failed"    => @<MpBadge Variant="BadgeVariant.Rupture" Icon="●">Échec</MpBadge>,
+        _           => @<MpBadge Variant="BadgeVariant.Rupture" Icon="●">Échec</MpBadge>
+    };
+}

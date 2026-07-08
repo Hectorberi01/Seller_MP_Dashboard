@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- App sandbox + accès réseau sortant (indispensable pour appeler le BFF). -->
+	<key>com.apple.security.app-sandbox</key>
+	<true/>
+	<key>com.apple.security.network.client</key>
+	<true/>
+	<!-- Accès caméra (sandbox macCatalyst) pour photographier les produits. -->
+	<key>com.apple.security.device.camera</key>
+	<true/>
+</dict>
+</plist>

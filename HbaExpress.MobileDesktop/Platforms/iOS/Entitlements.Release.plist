@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Build de distribution (TestFlight / App Store) : environnement APNs
+	     « production ». Indispensable, sinon le push ne fonctionne pas sur les
+	     builds distribués (le simulateur et le dev utilisent « development »). -->
+	<key>aps-environment</key>
+	<string>production</string>
+</dict>
+</plist>

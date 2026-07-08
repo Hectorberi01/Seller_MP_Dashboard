@@ -1,8 +1,10 @@
-bin/
-obj/
+**/bin/
+**/obj/
 .git/
 .vs/
 .vscode/
+.idea/
 deploy/ansible/
+HbaExpress.MobileDesktop/
 **/*.user
 Dockerfile

@@ -1,0 +1,250 @@
+@page "/commandes"
+@using Seller_MP_Dashboard.Api
+@inject ISellerApi Api
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<PageTitle>Commandes — Espace Vendeur</PageTitle>
+
+<PageHeader Title="Commandes"
+            Subtitle="@(orders is null ? "Chargement…" : $"{orders.Count} commandes · {ToProcess} à traiter")">
+    <Actions>
+        <span class="export-only"><MpButton Variant="ButtonVariant.Secondary" Icon="download" Disabled="@(Filtered.Count == 0)" OnClick="ExportCsv">Exporter</MpButton></span>
+    </Actions>
+</PageHeader>
+
+@if (loadError is not null)
+{
+    <ErrorNotice Title="Commandes indisponibles" Message="@loadError" OnRetry="Reload" />
+}
+else if (orders is null)
+{
+    <p class="mp-caption">Chargement…</p>
+}
+else
+{
+    <div class="cmd-toolbar">
+        <input class="mp-input cmd-search" placeholder="Rechercher une référence ou un client…"
+               @bind="search" @bind:event="oninput" />
+        <div class="cmd-filters">
+            @foreach (var f in _filters)
+            {
+                <button type="button" class="cmd-chip @(statusFilter == f.Key ? "active" : "")"
+                        @onclick="() => SetFilter(f.Key)">@f.Label</button>
+            }
+        </div>
+        <span class="mp-caption cmd-count">@Filtered.Count commande@(Filtered.Count > 1 ? "s" : "")</span>
+    </div>
+
+    @if (Filtered.Count == 0)
+    {
+        <div class="cmd-empty">
+            <div class="cmd-empty-ico"><AppIcon Name="shopping-cart" Size="40" StrokeWidth="1.5" /></div>
+            <p class="mp-body-strong">Aucune commande</p>
+            <p class="mp-caption">Aucune commande ne correspond à votre recherche.</p>
+        </div>
+    }
+    else
+    {
+    <div class="cmd-cards">
+        @foreach (var o in Paged)
+        {
+            <div class="cmd-card">
+                <div class="cmd-card-top">
+                    <div>
+                        <a class="cmd-ref mp-num" href="commande/@o.Id">@o.Reference</a>
+                        <span class="mp-list-sub mp-num">@Format.Date(o.Date)</span>
+                    </div>
+                    <OrderStatusBadge Status="o.UiStatus" />
+                </div>
+                <div class="cmd-card-mid">
+                    <span class="mp-tile mp-tile--round mp-tile--purple" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="7" r="4"/></svg>
+                    </span>
+                    <div class="mp-list-main">
+                        <span class="mp-list-title">@o.Customer</span>
+                        <span class="mp-list-sub">@o.ItemCount article@(o.ItemCount > 1 ? "s" : "")</span>
+                    </div>
+                    <div class="cmd-amount mp-num">@Format.Xof(o.TotalXof)</div>
+                </div>
+                <div class="cmd-card-bot">
+                    <OrderStatusBadge Payment="o.UiPayment" ShowPayment="true" />
+                    @* Une commande non payée n'est pas traitable. *@
+                    @if (o.UiPayment == PaymentStatus.Paid && o.UiStatus is OrderStatus.Pending or OrderStatus.Processing)
+                    {
+                        <MpButton Variant="ButtonVariant.Primary" OnClick="@(() => Nav.NavigateTo($"commande/{o.Id}"))">Traiter</MpButton>
+                    }
+                    else
+                    {
+                        <MpButton Variant="ButtonVariant.Tertiary" OnClick="@(() => Nav.NavigateTo($"commande/{o.Id}"))">Détails</MpButton>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+
+    @if (PageCount > 1)
+    {
+        <div class="cmd-pager">
+            <button class="cmd-page-btn" type="button" disabled="@(_page <= 1)" @onclick="Prev">Précédent</button>
+            <span class="mp-caption">Page @_page / @PageCount</span>
+            <button class="cmd-page-btn" type="button" disabled="@(_page >= PageCount)" @onclick="Next">Suivant</button>
+        </div>
+    }
+    }
+}
+
+<style>
+    .cust-name { font-weight: 500; }
+
+    /* Commandes en cartes (style maquette) */
+    .cmd-cards { display: flex; flex-direction: column; gap: var(--mp-space-3); }
+    .cmd-card { background: var(--mp-surface); border: 1px solid var(--mp-border); border-radius: var(--mp-radius-lg); box-shadow: var(--mp-shadow-sm); padding: var(--mp-space-3) var(--mp-space-4); display: flex; flex-direction: column; gap: var(--mp-space-3); }
+    .cmd-card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--mp-space-3); }
+    .cmd-card-top > div { display: flex; flex-direction: column; }
+    .cmd-ref { font-size: 14px; font-weight: 700; color: var(--mp-text); }
+    .cmd-ref:hover { text-decoration: none; color: var(--mp-primary); }
+    .cmd-card-mid { display: flex; align-items: center; gap: var(--mp-space-3); padding: var(--mp-space-2) 0; border-top: 1px solid var(--mp-border); border-bottom: 1px solid var(--mp-border); }
+    .cmd-amount { margin-left: auto; font-family: var(--mp-font-display); font-size: 18px; font-weight: 600; color: var(--mp-primary-dark); white-space: nowrap; }
+    .cmd-card-bot { display: flex; align-items: center; justify-content: space-between; gap: var(--mp-space-3); }
+
+    .cmd-toolbar { display: flex; align-items: center; gap: var(--mp-space-4); flex-wrap: wrap; margin-bottom: var(--mp-space-4); }
+    .cmd-search { flex: 1 1 260px; max-width: 380px; }
+    .cmd-filters { display: flex; gap: var(--mp-space-2); flex-wrap: wrap; }
+    .cmd-chip { border: 0.5px solid var(--mp-border); background-color: var(--mp-surface); border-radius: 999px; padding: 5px 14px; font-size: 13px; cursor: pointer; color: var(--mp-text); transition: all .15s ease; }
+    .cmd-chip:hover { border-color: var(--mp-primary); color: var(--mp-primary); }
+    .cmd-chip.active { background-color: var(--mp-primary); border-color: var(--mp-primary); color: #fff; }
+    .cmd-count { margin-left: auto; }
+    .cmd-empty { text-align: center; padding: var(--mp-space-8) var(--mp-space-4); border: 1px dashed var(--mp-border); border-radius: var(--mp-radius-lg); display: flex; flex-direction: column; gap: var(--mp-space-2); align-items: center; }
+    .cmd-pager { display: flex; align-items: center; justify-content: center; gap: var(--mp-space-4); margin-top: var(--mp-space-4); }
+    .cmd-page-btn { border: 0.5px solid var(--mp-border); background: var(--mp-surface); border-radius: var(--mp-radius-md); padding: 6px 16px; font-size: 13px; cursor: pointer; color: var(--mp-text); }
+    .cmd-page-btn:hover:not(:disabled) { border-color: var(--mp-primary); color: var(--mp-primary); }
+    .cmd-page-btn:disabled { opacity: .5; cursor: default; }
+
+    /* ---- Mobile : une commande = une carte empilée (plus de scroll horizontal) ---- */
+    @@media (max-width: 640.98px) {
+        .mp-table.orders-table { min-width: 0; }
+        .orders-table thead { display: none; }
+        .orders-table, .orders-table tbody, .orders-table tr, .orders-table td { display: block; width: auto; }
+        .orders-table tr {
+            border: 0.5px solid var(--mp-border);
+            border-radius: var(--mp-radius-lg);
+            padding: var(--mp-space-2) var(--mp-space-3);
+            margin: var(--mp-space-3);
+            background: var(--mp-surface);
+        }
+        .orders-table tbody tr:hover { background: var(--mp-surface); }
+        .orders-table td {
+            display: flex; align-items: center; justify-content: space-between; gap: var(--mp-space-3);
+            padding: 7px 0; border: none; text-align: right; white-space: normal;
+        }
+        .orders-table td + td { border-top: 0.5px solid var(--mp-border); }
+        .orders-table td[data-label]::before {
+            content: attr(data-label);
+            font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em;
+            color: var(--mp-text-muted); text-align: left; flex-shrink: 0;
+        }
+        /* Référence en titre pleine largeur */
+        .orders-table td.cell-ref { border-top: none; padding-top: 2px; }
+        .orders-table td.cell-ref .order-ref { font-size: 16px; font-weight: 700; }
+        /* Actions : bouton pleine largeur en bas de carte */
+        .orders-table td.cell-actions { padding-top: var(--mp-space-2); }
+        .orders-table td.cell-actions::before { display: none; }
+        .orders-table td.cell-actions button { width: 100%; }
+    }
+</style>
+
+@code {
+    private IReadOnlyList<SellerOrder>? orders;
+    private string? loadError;
+    private string search = "";
+    private string statusFilter = "all";
+    private int _page = 1;
+    private const int PageSize = 15;
+
+    private readonly (string Key, string Label)[] _filters =
+    {
+        ("all", "Toutes"),
+        ("todo", "À traiter"),
+        ("shipped", "Expédiées"),
+        ("delivered", "Livrées"),
+        ("cancelled", "Annulées"),
+    };
+
+    protected override Task OnInitializedAsync() => Reload();
+
+    private async Task Reload()
+    {
+        loadError = null;
+        orders = null;
+        _page = 1;
+        try { orders = await Api.ListOrdersAsync(); }
+        catch (Exception ex) { loadError = ex.Message; }
+    }
+
+    private int ToProcess => orders?.Count(o => o.UiStatus is OrderStatus.Pending or OrderStatus.Processing) ?? 0;
+
+    private void SetFilter(string key) { statusFilter = key; _page = 1; }
+
+    private List<SellerOrder> Filtered
+    {
+        get
+        {
+            if (orders is null) return new();
+            IEnumerable<SellerOrder> q = orders;
+
+            q = statusFilter switch
+            {
+                "todo" => q.Where(o => o.UiStatus is OrderStatus.Pending or OrderStatus.Processing),
+                "shipped" => q.Where(o => o.UiStatus == OrderStatus.Shipped),
+                "delivered" => q.Where(o => o.UiStatus == OrderStatus.Delivered),
+                "cancelled" => q.Where(o => o.UiStatus == OrderStatus.Cancelled),
+                _ => q,
+            };
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var s = search.Trim();
+                q = q.Where(o => (o.Reference ?? "").Contains(s, StringComparison.OrdinalIgnoreCase)
+                              || (o.Customer ?? "").Contains(s, StringComparison.OrdinalIgnoreCase));
+            }
+            return q.ToList();
+        }
+    }
+
+    private int PageCount => Math.Max(1, (int)Math.Ceiling(Filtered.Count / (double)PageSize));
+    private IEnumerable<SellerOrder> Paged => Filtered.Skip((Math.Min(_page, PageCount) - 1) * PageSize).Take(PageSize);
+
+    private void Prev() { if (_page > 1) _page--; }
+    private void Next() { if (_page < PageCount) _page++; }
+
+    private async Task ExportCsv()
+    {
+        var rows = Filtered;
+        if (rows.Count == 0) return;
+
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("Référence;Client;Date;Articles;Montant XOF;Paiement;Statut");
+        foreach (var o in rows)
+        {
+            sb.Append(Csv(o.Reference)).Append(';')
+              .Append(Csv(o.Customer)).Append(';')
+              .Append(Csv(o.Date.ToString("yyyy-MM-dd"))).Append(';')
+              .Append(o.ItemCount).Append(';')
+              .Append(o.TotalXof).Append(';')
+              .Append(Csv(o.UiPayment.ToString())).Append(';')
+              .Append(Csv(o.UiStatus.ToString())).AppendLine();
+        }
+
+        var name = $"commandes_{DateTime.Now:yyyyMMdd}.csv";
+        await JS.InvokeVoidAsync("hbaDownload", name, sb.ToString(), "text/csv");
+    }
+
+    private static string Csv(string? value)
+    {
+        var v = value ?? "";
+        if (v.Contains('"') || v.Contains(';') || v.Contains('\n') || v.Contains('\r'))
+            v = "\"" + v.Replace("\"", "\"\"") + "\"";
+        return v;
+    }
+}

@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<key>UIDeviceFamily</key>
+	<array>
+		<integer>1</integer>
+		<integer>2</integer>
+	</array>
+	<key>UIRequiredDeviceCapabilities</key>
+	<array>
+		<string>arm64</string>
+	</array>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>UISupportedInterfaceOrientations~ipad</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>XSAppIconAssets</key>
+	<string>Assets.xcassets/appicon.appiconset</string>
+	<!-- Autorisations affichées à l'utilisateur pour prendre / choisir des photos produit.
+	     Sans ces clés, iOS masque l'option « Prendre une photo » dans l'input fichier. -->
+	<key>NSCameraUsageDescription</key>
+	<string>HbaExpress Pro utilise l'appareil photo pour prendre des photos de vos produits.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>HbaExpress Pro accède à vos photos pour ajouter des images à vos produits.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>HbaExpress Pro enregistre des images dans votre photothèque.</string>
+	<!-- Push : réception en arrière-plan (remote-notification) + fetch réclamé par Firebase. -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+		<string>fetch</string>
+	</array>
+</dict>
+</plist>

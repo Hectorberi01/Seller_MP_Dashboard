@@ -1,0 +1,196 @@
+@page "/notifications"
+@using Seller_MP_Dashboard.Api
+@using Seller_MP_Dashboard.Services
+@inject ISellerApi Api
+@inject ToastService Toast
+
+<PageTitle>Notifications — Espace Vendeur</PageTitle>
+
+<PageHeader Title="Notifications" Subtitle="@Subtitle">
+    <Actions>
+        @if (_items is { Count: > 0 } && UnreadCount > 0)
+        {
+            <MpButton Variant="ButtonVariant.Secondary" Icon="check" OnClick="MarkAllReadAsync">Tout marquer comme lu</MpButton>
+        }
+    </Actions>
+</PageHeader>
+
+@if (_loadError is not null)
+{
+    <ErrorNotice Title="Notifications indisponibles" Message="@_loadError" OnRetry="Load" />
+}
+else if (_items is null)
+{
+    <p class="mp-caption">Chargement…</p>
+}
+else
+{
+    <div class="ntf-toolbar">
+        <button type="button" class="ntf-chip @(_filter == "all" ? "active" : "")" @onclick="@(() => SetFilter("all"))">
+            Toutes (@_items.Count)
+        </button>
+        <button type="button" class="ntf-chip @(_filter == "unread" ? "active" : "")" @onclick="@(() => SetFilter("unread"))">
+            Non lues (@UnreadCount)
+        </button>
+    </div>
+
+    @if (Filtered.Count == 0)
+    {
+        <div class="ntf-empty">
+            <span class="ntf-empty-ico">
+                <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+            </span>
+            <p class="mp-body-strong">@(_filter == "unread" ? "Aucune notification non lue" : "Aucune notification")</p>
+            <p class="mp-caption">Vous serez notifié ici des commandes, paiements et retraits.</p>
+        </div>
+    }
+    else
+    {
+        <div class="ntf-list">
+            @foreach (var n in Paged)
+            {
+                <button type="button" class="ntf-item @(n.IsRead ? null : "unread")" @onclick="@(() => OnClickAsync(n))">
+                    <span class="ntf-ico @(n.IsRead ? null : "is-unread")" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+                    </span>
+                    <span class="ntf-main">
+                        <span class="ntf-top">
+                            <span class="ntf-title">@n.Title</span>
+                            @if (!n.IsRead)
+                            {
+                                <span class="ntf-dot" aria-label="Non lue"></span>
+                            }
+                        </span>
+                        @if (!string.IsNullOrWhiteSpace(n.Message))
+                        {
+                            <span class="ntf-msg">@n.Message</span>
+                        }
+                        <span class="ntf-time mp-num">@RelativeTime(n.CreatedAtUtc)</span>
+                    </span>
+                </button>
+            }
+        </div>
+
+        @if (PageCount > 1)
+        {
+            <div class="ntf-pager">
+                <button class="ntf-page-btn" type="button" disabled="@(_page <= 1)" @onclick="Prev">Précédent</button>
+                <span class="mp-caption">Page @_page / @PageCount</span>
+                <button class="ntf-page-btn" type="button" disabled="@(_page >= PageCount)" @onclick="Next">Suivant</button>
+            </div>
+        }
+    }
+}
+
+<style>
+    .ntf-toolbar { display: flex; gap: var(--mp-space-2); flex-wrap: wrap; margin-bottom: var(--mp-space-4); }
+    .ntf-chip { border: 0.5px solid var(--mp-border); background: var(--mp-surface); border-radius: 999px; padding: 6px 16px; font-size: 13px; font-weight: 600; cursor: pointer; color: var(--mp-text); }
+    .ntf-chip:hover { border-color: var(--mp-primary); color: var(--mp-primary); }
+    .ntf-chip.active { background: var(--mp-primary); border-color: var(--mp-primary); color: #fff; }
+
+    .ntf-list { display: flex; flex-direction: column; background: var(--mp-surface); border: 1px solid var(--mp-border); border-radius: var(--mp-radius-lg); box-shadow: var(--mp-shadow-sm); overflow: hidden; }
+    .ntf-item {
+        appearance: none; cursor: pointer; text-align: left; background: none; border: none;
+        border-bottom: 0.5px solid var(--mp-border);
+        padding: var(--mp-space-3) var(--mp-space-4);
+        display: flex; align-items: flex-start; gap: var(--mp-space-3);
+        font-family: var(--mp-font-sans); color: var(--mp-text);
+    }
+    .ntf-item:last-child { border-bottom: none; }
+    .ntf-item:hover { background: var(--mp-surface-2); }
+    .ntf-item.unread { background: var(--mp-primary-light); }
+    .ntf-item.unread:hover { background: var(--mp-primary-light); }
+
+    .ntf-ico {
+        flex-shrink: 0; width: 40px; height: 40px; border-radius: 999px;
+        display: inline-flex; align-items: center; justify-content: center;
+        background: var(--mp-surface-2); color: var(--mp-text-muted);
+    }
+    .ntf-ico.is-unread { background: var(--mp-primary); color: #fff; }
+
+    .ntf-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+    .ntf-top { display: flex; align-items: center; gap: var(--mp-space-2); }
+    .ntf-title { font-weight: 600; font-size: 15px; }
+    .ntf-item.unread .ntf-title { font-weight: 700; }
+    .ntf-dot { width: 8px; height: 8px; border-radius: 999px; background: var(--mp-primary); flex-shrink: 0; }
+    .ntf-msg { font-size: 13px; color: var(--mp-text-muted); }
+    .ntf-time { font-size: 12px; color: var(--mp-text-muted); margin-top: 2px; }
+
+    .ntf-empty { display: flex; flex-direction: column; align-items: center; gap: var(--mp-space-1); text-align: center; padding: var(--mp-space-8) var(--mp-space-4); border: 1px dashed var(--mp-border); border-radius: var(--mp-radius-lg); }
+    .ntf-empty-ico { color: var(--mp-text-muted); display: inline-flex; margin-bottom: var(--mp-space-1); }
+
+    .ntf-pager { display: flex; align-items: center; justify-content: center; gap: var(--mp-space-4); margin-top: var(--mp-space-4); }
+    .ntf-page-btn { border: 0.5px solid var(--mp-border); background: var(--mp-surface); border-radius: var(--mp-radius-md); padding: 6px 16px; font-size: 13px; cursor: pointer; color: var(--mp-text); }
+    .ntf-page-btn:hover:not(:disabled) { border-color: var(--mp-primary); color: var(--mp-primary); }
+    .ntf-page-btn:disabled { opacity: .5; cursor: default; }
+</style>
+
+@code {
+    private IReadOnlyList<SellerNotification>? _items;
+    private string? _loadError;
+    private string _filter = "all";
+    private int _page = 1;
+    private const int PageSize = 10;
+
+    protected override Task OnInitializedAsync() => Load();
+
+    private async Task Load()
+    {
+        _loadError = null;
+        _items = null;
+        try { _items = await Api.ListNotificationsAsync(); }
+        catch { _loadError = "Impossible de joindre le serveur (session expirée ou BFF injoignable)."; }
+    }
+
+    private int UnreadCount => _items?.Count(n => !n.IsRead) ?? 0;
+
+    private string Subtitle => _items is null
+        ? "Chargement…"
+        : UnreadCount > 0 ? $"{UnreadCount} non lue{(UnreadCount > 1 ? "s" : "")} sur {_items.Count}"
+                          : $"{_items.Count} notification{(_items.Count > 1 ? "s" : "")}";
+
+    private void SetFilter(string key) { _filter = key; _page = 1; }
+
+    private List<SellerNotification> Filtered
+    {
+        get
+        {
+            if (_items is null) return new();
+            IEnumerable<SellerNotification> q = _items.OrderByDescending(n => n.CreatedAtUtc);
+            if (_filter == "unread") q = q.Where(n => !n.IsRead);
+            return q.ToList();
+        }
+    }
+
+    private int PageCount => Math.Max(1, (int)Math.Ceiling(Filtered.Count / (double)PageSize));
+    private IEnumerable<SellerNotification> Paged => Filtered.Skip((Math.Min(_page, PageCount) - 1) * PageSize).Take(PageSize);
+
+    private void Prev() { if (_page > 1) _page--; }
+    private void Next() { if (_page < PageCount) _page++; }
+
+    private async Task OnClickAsync(SellerNotification n)
+    {
+        if (n.IsRead) return;
+        try { await Api.MarkNotificationReadAsync(n.Id); }
+        catch { /* on ne bloque pas l'UI */ }
+        await Load();
+    }
+
+    private async Task MarkAllReadAsync()
+    {
+        try { await Api.MarkAllNotificationsReadAsync(); }
+        catch { /* silencieux : le rechargement reflétera l'état serveur */ }
+        await Load();
+    }
+
+    private static string RelativeTime(DateTime utc)
+    {
+        var delta = DateTime.UtcNow - utc;
+        if (delta < TimeSpan.Zero) delta = TimeSpan.Zero;
+        if (delta.TotalMinutes < 1) return "à l'instant";
+        if (delta.TotalMinutes < 60) return $"il y a {(int)delta.TotalMinutes} min";
+        if (delta.TotalHours < 24) return $"il y a {(int)delta.TotalHours} h";
+        if (delta.TotalDays < 7) return $"il y a {(int)delta.TotalDays} j";
+        return utc.ToLocalTime().ToString("dd/MM/yyyy");
+    }
+}

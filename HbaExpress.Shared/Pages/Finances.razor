@@ -1,0 +1,469 @@
+@page "/finances"
+@using System.Text
+@using System.Globalization
+@inject ISellerApi Api
+@inject IJSRuntime JS
+
+<PageTitle>Finances — Espace Vendeur</PageTitle>
+
+<PageHeader Title="Finances"
+            Subtitle="Relevé de la période et historique des versements." />
+
+@if (loadError is not null)
+{
+    <ErrorNotice Title="Finances indisponibles" Message="@loadError" OnRetry="Load" />
+}
+else if (statement is null || payouts is null)
+{
+    <p class="mp-caption">Chargement…</p>
+}
+else
+{
+    <div class="period-bar">
+        <div class="period-presets">
+            <button type="button" class="preset-btn @(activePreset == Preset.Days7 ? "active" : null)"
+                    @onclick="() => ApplyPreset(Preset.Days7)">7 jours</button>
+            <button type="button" class="preset-btn @(activePreset == Preset.Days30 ? "active" : null)"
+                    @onclick="() => ApplyPreset(Preset.Days30)">30 jours</button>
+            <button type="button" class="preset-btn @(activePreset == Preset.ThisMonth ? "active" : null)"
+                    @onclick="() => ApplyPreset(Preset.ThisMonth)">Ce mois-ci</button>
+            <button type="button" class="preset-btn @(activePreset == Preset.ThisYear ? "active" : null)"
+                    @onclick="() => ApplyPreset(Preset.ThisYear)">Cette année</button>
+            <button type="button" class="preset-btn @(activePreset == Preset.Custom ? "active" : null)"
+                    @onclick="() => ApplyPreset(Preset.Custom)">Personnalisé</button>
+        </div>
+
+        @if (activePreset == Preset.Custom)
+        {
+            <div class="period-custom">
+                <label class="period-field">
+                    <span>Du</span>
+                    <input type="date" value="@customFrom.ToString("yyyy-MM-dd")"
+                           @onchange="OnCustomFromChanged" />
+                </label>
+                <label class="period-field">
+                    <span>Au</span>
+                    <input type="date" value="@customTo.ToString("yyyy-MM-dd")"
+                           @onchange="OnCustomToChanged" />
+                </label>
+            </div>
+        }
+
+        <div class="period-actions">
+            <span class="period-active mp-caption">
+                Période : <strong class="mp-num">@Format.Date(activeFrom)</strong> → <strong class="mp-num">@Format.Date(activeTo)</strong>
+            </span>
+            <span class="export-only">
+                <MpButton Variant="ButtonVariant.Secondary" Icon="download"
+                          Disabled="@(filteredLines.Count == 0)" OnClick="ExportCsv">
+                    Exporter CSV
+                </MpButton>
+            </span>
+        </div>
+    </div>
+
+    <div class="fin-stats">
+        <div class="mp-stat">
+            <span class="mp-tile mp-tile--sm mp-tile--blue" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-4 4"/></svg>
+            </span>
+            <span class="mp-stat-label">Ventes brutes</span>
+            <div class="mp-stat-value mp-num">@Format.Xof(grossXof)</div>
+        </div>
+        <div class="mp-stat">
+            <span class="mp-tile mp-tile--sm mp-tile--amber" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>
+            </span>
+            <span class="mp-stat-label">Commissions</span>
+            <div class="mp-stat-value mp-num fin-neg">-@Format.Xof(commissionXof + providerXof)</div>
+        </div>
+        <div class="mp-stat">
+            <span class="mp-tile mp-tile--sm mp-tile--red" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v6h6"/><path d="M3 8a9 9 0 1 0 3-6.7"/></svg>
+            </span>
+            <span class="mp-stat-label">Remboursements</span>
+            <div class="mp-stat-value mp-num fin-neg">-@Format.Xof(refundsXof)</div>
+        </div>
+        <div class="mp-stat">
+            <span class="mp-tile mp-tile--sm mp-tile--green" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M19 5c-1.5 0-2.8 1.4-3 2-3.5-1.5-11-.3-11 5 0 1.8 0 3 2 4.5V20h4v-2h3v2h4v-4c1-.5 1.7-1 2-2h2v-4h-2c0-1-.5-1.5-1-2V5z"/><path d="M2 9v1c0 1.1.9 2 2 2h1"/><path d="M16 11h.01"/></svg>
+            </span>
+            <span class="mp-stat-label">Net à recevoir</span>
+            <div class="mp-stat-value mp-num fin-pos">@Format.Xof(netXof)</div>
+        </div>
+    </div>
+
+    <div class="fin-grid">
+        <MpCard Title="Relevé détaillé" NoPadding="true">
+            <ChildContent>
+                @if (filteredLines.Count == 0)
+                {
+                    <div class="empty-state">
+                        <span class="empty-icon"><AppIcon Name="receipt" Size="28" /></span>
+                        <p class="mp-body-strong">Aucun mouvement sur cette période</p>
+                        <p class="mp-caption">Ajustez la période ci-dessus pour afficher d'autres mouvements.</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="fin-movelist">
+                        <div class="mp-list">
+                            @foreach (var l in filteredLines)
+                            {
+                                var credit = l.AmountXof >= 0;
+                                <div class="mp-list-row">
+                                    <span class="mp-tile mp-tile--round @(credit ? "mp-tile--green" : "mp-tile--red")" aria-hidden="true">
+                                        @if (credit)
+                                        {
+                                            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                                        }
+                                        else
+                                        {
+                                            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                                        }
+                                    </span>
+                                    <div class="mp-list-main">
+                                        <span class="mp-list-title">@TypeLabel(l.Type)</span>
+                                        <span class="mp-list-sub mp-num">@Format.Date(l.Date)</span>
+                                    </div>
+                                    <div class="mp-list-trail mp-num @(credit ? "mp-amount-pos" : "mp-amount-neg")">
+                                        @(credit ? "+" : "−")@Format.Xof(Math.Abs(l.AmountXof))
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+            </ChildContent>
+        </MpCard>
+
+        <MpCard Title="Versements" Subtitle="@ProviderSubtitle">
+            <ChildContent>
+                <div class="payout-list">
+                    @foreach (var p in payouts)
+                    {
+                        <div class="payout-row">
+                            <div class="payout-main">
+                                <span class="mp-body-strong mp-num">@Format.Xof(p.AmountXof)</span>
+                                <span class="mp-caption mp-num">@Format.Date(p.RequestedAt)</span>
+                            </div>
+                            @PayoutBadge(p.Status)
+                        </div>
+                    }
+                </div>
+            </ChildContent>
+        </MpCard>
+    </div>
+}
+
+<style>
+    /* Stats en tuiles 2×2 (style maquette) */
+    .fin-stats { display: grid; grid-template-columns: 1fr 1fr; gap: var(--mp-space-3); margin-bottom: var(--mp-space-4); }
+    .fin-neg { color: var(--mp-danger); }
+    .fin-pos { color: var(--mp-action); }
+
+    /* Relevé en liste propre dans la carte */
+    .fin-movelist { padding: var(--mp-space-1) var(--mp-space-4) var(--mp-space-2); }
+    .fin-movelist .mp-list { gap: 0; }
+    .fin-movelist .mp-list-row { border: none; box-shadow: none; border-radius: 0; background: transparent; padding-left: 0; padding-right: 0; border-bottom: 1px solid var(--mp-border); }
+    .fin-movelist .mp-list-row:last-child { border-bottom: none; }
+
+    .period-bar {
+        display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+        gap: var(--mp-space-3);
+        margin-bottom: var(--mp-space-5);
+    }
+    .period-presets { display: flex; flex-wrap: wrap; gap: var(--mp-space-2); }
+    .preset-btn {
+        background-color: var(--mp-surface);
+        border: 0.5px solid var(--mp-border);
+        border-radius: var(--mp-radius-md);
+        padding: 6px 12px;
+        font-size: 13px; font-weight: 500;
+        color: var(--mp-text);
+        cursor: pointer;
+        transition: all .12s ease;
+    }
+    .preset-btn:hover { border-color: var(--mp-primary); }
+    .preset-btn.active {
+        background-color: var(--mp-primary-light);
+        border-color: var(--mp-primary);
+        color: var(--mp-primary-dark);
+    }
+
+    .period-custom { display: flex; gap: var(--mp-space-3); flex-wrap: wrap; }
+    .period-field { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--mp-text-muted); }
+    .period-field input {
+        border: 0.5px solid var(--mp-border);
+        border-radius: var(--mp-radius-md);
+        padding: 6px 8px;
+        font-size: 13px;
+        color: var(--mp-text);
+        background-color: var(--mp-surface);
+    }
+
+    .period-actions { display: flex; align-items: center; gap: var(--mp-space-3); flex-wrap: wrap; }
+    .period-active { white-space: nowrap; }
+
+    .kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: var(--mp-space-4);
+        margin-bottom: var(--mp-space-6);
+    }
+    .stat-card {
+        background-color: var(--mp-surface);
+        border: 0.5px solid var(--mp-border);
+        border-radius: var(--mp-radius-lg);
+        padding: var(--mp-space-4);
+        display: flex; flex-direction: column; gap: var(--mp-space-2);
+    }
+    .stat-card.highlight { border-color: var(--mp-primary); background-color: var(--mp-primary-light); }
+    .stat-label { font-size: 13px; color: var(--mp-text-muted); }
+    .stat-value { font-size: 24px; font-weight: 600; color: var(--mp-primary-dark); }
+    .stat-value.neg { color: var(--mp-danger); }
+
+    .fin-grid { display: grid; grid-template-columns: 1.6fr 1fr; gap: var(--mp-space-4); align-items: start; }
+    @@media (max-width: 900px) { .fin-grid { grid-template-columns: 1fr; } }
+
+    .mp-table .pos { color: var(--mp-action); }
+    .mp-table .neg { color: var(--mp-danger); }
+
+    .empty-state {
+        display: flex; flex-direction: column; align-items: center; gap: var(--mp-space-2);
+        padding: var(--mp-space-6) var(--mp-space-4);
+        text-align: center;
+        color: var(--mp-text-muted);
+    }
+    .empty-icon { color: var(--mp-text-muted); opacity: .7; }
+
+    .payout-list { display: flex; flex-direction: column; }
+    .payout-row {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: var(--mp-space-3) 0;
+        border-bottom: 0.5px solid var(--mp-border);
+    }
+    .payout-row:last-child { border-bottom: 0; }
+    .payout-main { display: flex; flex-direction: column; gap: 1px; }
+</style>
+
+@code {
+    private FinanceStatement? statement;
+    private IReadOnlyList<Payout>? payouts;
+    private string? loadError;
+
+    // ---- Période ----
+    private enum Preset { Days7, Days30, ThisMonth, ThisYear, Custom }
+    private Preset activePreset = Preset.Days30;
+    private DateTime activeFrom;
+    private DateTime activeTo;
+    private DateTime customFrom;
+    private DateTime customTo;
+
+    // ---- Lignes filtrées + totaux recalculés ----
+    private List<StatementLine> filteredLines = new();
+    private int grossXof;
+    private int commissionXof;
+    private int providerXof;
+    private int refundsXof;
+    private int netXof;
+
+    private string ProviderSubtitle => "Vers " + (payouts?.FirstOrDefault()?.Provider ?? "votre compte");
+
+    protected override async Task OnInitializedAsync()
+    {
+        var today = DateTime.Today;
+        activeTo = today;
+        activeFrom = today.AddDays(-30);
+        customFrom = activeFrom;
+        customTo = activeTo;
+        await Load();
+    }
+
+    private async Task Load()
+    {
+        loadError = null;
+
+        // Appel du relevé, tolérant : certains BFF (versions déployées) ne gèrent
+        // pas encore from/to → on retente sans période plutôt que d'échouer.
+        try
+        {
+            statement = await Api.GetStatementAsync(activeFrom, activeTo.Date.AddDays(1).AddSeconds(-1));
+        }
+        catch
+        {
+            try
+            {
+                statement = await Api.GetStatementAsync();
+            }
+            catch (Exception ex)
+            {
+                loadError = $"Relevé indisponible — {Describe(ex)}";
+                return;
+            }
+        }
+
+        try
+        {
+            payouts = await Api.ListPayoutsAsync();
+        }
+        catch (Exception ex)
+        {
+            loadError = $"Versements indisponibles — {Describe(ex)}";
+            return;
+        }
+
+        Recompute();
+    }
+
+    // Message d'erreur lisible : expose le message (avec corps/statut) de l'exception.
+    private static string Describe(Exception ex) => ex.Message;
+
+    // Filtrage côté client des lignes + recalcul des totaux (robuste si le back
+    // ne borne pas exactement la période renvoyée).
+    private void Recompute()
+    {
+        var lines = statement?.Lines ?? new List<StatementLine>();
+        var from = activeFrom.Date;
+        var to = activeTo.Date;
+
+        filteredLines = lines
+            .Where(l => l.Date.Date >= from && l.Date.Date <= to)
+            .OrderBy(l => l.Date)
+            .ToList();
+
+        if (filteredLines.Count > 0)
+        {
+            // Détail disponible : on recalcule les totaux à partir des lignes filtrées.
+            grossXof = filteredLines.Where(l => l.Type == "sale").Sum(l => Math.Abs(l.AmountXof));
+            commissionXof = filteredLines.Where(l => l.Type == "commission").Sum(l => Math.Abs(l.AmountXof));
+            providerXof = filteredLines.Where(l => l.Type == "provider").Sum(l => Math.Abs(l.AmountXof));
+            refundsXof = filteredLines.Where(l => l.Type == "refund").Sum(l => Math.Abs(l.AmountXof));
+            netXof = grossXof - commissionXof - providerXof - refundsXof;
+        }
+        else
+        {
+            // Pas de détail ligne à ligne (relevé agrégé) : on affiche les totaux du relevé.
+            grossXof = statement?.GrossSalesXof ?? 0;
+            commissionXof = statement?.CommissionXof ?? 0;
+            providerXof = statement?.ProviderFeeXof ?? 0;
+            refundsXof = statement?.RefundsXof ?? 0;
+            netXof = statement?.NetEarningsXof ?? 0;
+        }
+    }
+
+    private async Task ApplyPreset(Preset preset)
+    {
+        activePreset = preset;
+        var today = DateTime.Today;
+
+        switch (preset)
+        {
+            case Preset.Days7:
+                activeFrom = today.AddDays(-7);
+                activeTo = today;
+                break;
+            case Preset.Days30:
+                activeFrom = today.AddDays(-30);
+                activeTo = today;
+                break;
+            case Preset.ThisMonth:
+                activeFrom = new DateTime(today.Year, today.Month, 1);
+                activeTo = today;
+                break;
+            case Preset.ThisYear:
+                activeFrom = new DateTime(today.Year, 1, 1);
+                activeTo = today;
+                break;
+            case Preset.Custom:
+                activeFrom = customFrom;
+                activeTo = customTo;
+                break;
+        }
+
+        if (activeFrom > activeTo) (activeFrom, activeTo) = (activeTo, activeFrom);
+
+        await Load();
+    }
+
+    private async Task OnCustomFromChanged(ChangeEventArgs e)
+    {
+        if (DateTime.TryParse(e.Value?.ToString(), out var d))
+        {
+            customFrom = d;
+            activePreset = Preset.Custom;
+            await ApplyPreset(Preset.Custom);
+        }
+    }
+
+    private async Task OnCustomToChanged(ChangeEventArgs e)
+    {
+        if (DateTime.TryParse(e.Value?.ToString(), out var d))
+        {
+            customTo = d;
+            activePreset = Preset.Custom;
+            await ApplyPreset(Preset.Custom);
+        }
+    }
+
+    // ---- Export CSV (séparateur « ; » pour Excel FR) ----
+    private async Task ExportCsv()
+    {
+        if (filteredLines.Count == 0) return;
+
+        var sb = new StringBuilder();
+        // En-tête récap
+        sb.Append("Relevé finances").Append(';')
+          .Append(activeFrom.ToString("dd/MM/yyyy", CultureInfo.GetCultureInfo("fr-FR"))).Append(" -> ")
+          .Append(activeTo.ToString("dd/MM/yyyy", CultureInfo.GetCultureInfo("fr-FR"))).Append('\n');
+        sb.Append("Ventes brutes;").Append(grossXof).Append(";Commission;").Append(commissionXof)
+          .Append(";Frais provider;").Append(providerXof)
+          .Append(";Remboursements;").Append(refundsXof).Append(";Revenu net;").Append(netXof).Append('\n');
+        sb.Append('\n');
+
+        // Colonnes
+        sb.Append("Date;Libellé;Type;Montant XOF\n");
+
+        foreach (var l in filteredLines)
+        {
+            sb.Append(Csv(l.Date.ToString("dd/MM/yyyy", CultureInfo.GetCultureInfo("fr-FR")))).Append(';')
+              .Append(Csv(l.Label)).Append(';')
+              .Append(Csv(TypeLabel(l.Type))).Append(';')
+              .Append(l.AmountXof).Append('\n');
+        }
+
+        var name = $"finances_{activeFrom:yyyy-MM-dd}_{activeTo:yyyy-MM-dd}.csv";
+        await JS.InvokeVoidAsync("hbaDownload", name, sb.ToString(), "text/csv");
+    }
+
+    // Échappe un champ CSV : entoure de guillemets si nécessaire, double les guillemets internes.
+    private static string Csv(string value)
+    {
+        value ??= "";
+        if (value.Contains(';') || value.Contains('"') || value.Contains('\n') || value.Contains('\r'))
+        {
+            return "\"" + value.Replace("\"", "\"\"") + "\"";
+        }
+        return value;
+    }
+
+    private static string TypeLabel(string t) => t switch
+    {
+        "sale" => "Vente",
+        "commission" => "Commission",
+        "provider" => "Frais provider",
+        "refund" => "Remboursement",
+        "payout" => "Versement",
+        _ => t
+    };
+
+    private RenderFragment PayoutBadge(PayoutStatus status) => status switch
+    {
+        PayoutStatus.Paid       => @<MpBadge Variant="BadgeVariant.Stock" Icon="●">Versé</MpBadge>,
+        PayoutStatus.Processing => @<MpBadge Variant="BadgeVariant.Verified" Icon="●">En cours</MpBadge>,
+        PayoutStatus.Pending    => @<MpBadge Variant="BadgeVariant.Promo" Icon="●">En attente</MpBadge>,
+        PayoutStatus.Requested  => @<MpBadge Variant="BadgeVariant.Promo" Icon="●">En attente</MpBadge>,
+        PayoutStatus.Rejected   => @<MpBadge Variant="BadgeVariant.Neutral" Icon="●">Refusé</MpBadge>,
+        _                       => @<MpBadge Variant="BadgeVariant.Rupture" Icon="●">Échec</MpBadge>
+    };
+}

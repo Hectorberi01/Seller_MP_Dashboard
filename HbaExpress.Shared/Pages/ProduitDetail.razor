@@ -1,0 +1,1469 @@
+@page "/produit/{Id:guid}"
+@using Seller_MP_Dashboard.Api
+@using Microsoft.AspNetCore.Components.Forms
+@inject ISellerApi Api
+@inject NavigationManager Nav
+@inject IConfiguration Config
+@inject Seller_MP_Dashboard.Services.ToastService Toast
+
+<PageTitle>@(product?.Name ?? "Produit") — Espace Vendeur</PageTitle>
+
+@if (_loading)
+{
+    <p class="mp-caption">Chargement…</p>
+}
+else if (product is null)
+{
+    <PageHeader Title="Produit introuvable"
+                Subtitle="Ce produit n'existe pas ou n'appartient pas à votre boutique." />
+    <MpButton Variant="ButtonVariant.Secondary" OnClick="@(() => Nav.NavigateTo("produits"))">← Retour aux produits</MpButton>
+}
+else
+{
+    <div class="breadcrumb">
+        <a href="produits">Produits</a>
+        <span aria-hidden="true">/</span>
+        <span>@product.Name</span>
+    </div>
+
+    @* Barre d'actions pleine largeur : tous les boutons sur une ligne, alignée
+       avec les sections en dessous. *@
+    <div class="detail-actions">
+        <MpButton Variant="ButtonVariant.Secondary" Icon="arrow-left" OnClick="@(() => Nav.NavigateTo("produits"))">Retour</MpButton>
+        <MpButton Variant="ButtonVariant.Tertiary" Icon="eye" OnClick="@(() => Nav.NavigateTo($"produit/{Id}/apercu"))">Aperçu client</MpButton>
+        @if (product.Status == "Draft")
+        {
+            @* La publication (mise en vitrine) est validée par l'administration. *@
+            <MpBadge Variant="BadgeVariant.Neutral" Icon="●">En attente de validation</MpBadge>
+        }
+        @if (product.Status == "Active")
+        {
+            <MpButton Variant="ButtonVariant.Secondary" Icon="eye-off" OnClick="@(() => ChangeStatus("Draft"))">Retirer de la vente</MpButton>
+        }
+        @if (product.Status != "Archived")
+        {
+            <MpButton Variant="ButtonVariant.Tertiary" Icon="archive" OnClick="@(() => ChangeStatus("Archived"))">Archiver</MpButton>
+        }
+        <MpButton Variant="ButtonVariant.Primary" Icon="edit" OnClick="OpenEdit">Modifier</MpButton>
+        <MpButton Variant="ButtonVariant.Action" Icon="plus" OnClick="OpenOffer">Ajouter une offre</MpButton>
+        <MpButton Variant="ButtonVariant.Danger" Icon="trash" OnClick="DeleteProduct">Retirer</MpButton>
+    </div>
+    @if (_statusError is not null) { <p class="form-error">@_statusError</p> }
+
+    <div class="detail-grid">
+        <div class="gallery">
+            <MpCard NoPadding="true">
+                <ChildContent>
+                    @if (!string.IsNullOrEmpty(CurrentImage?.Url))
+                    {
+                        <img class="detail-photo" src="@CurrentImage!.Url" alt="@(CurrentImage.AltText ?? product.Name)" />
+                    }
+                    else
+                    {
+                        <div class="detail-image" aria-hidden="true">@CurrentImageEmoji</div>
+                    }
+                </ChildContent>
+            </MpCard>
+
+            @if (product.Images.Count > 0)
+            {
+                <span class="gallery-caption mp-caption">@(CurrentImage?.AltText ?? product.Name) · @(selectedImage + 1)/@product.Images.Count</span>
+            }
+
+            @if (product.Images.Count > 1)
+            {
+                <div class="thumbs">
+                    @for (int i = 0; i < product.Images.Count; i++)
+                    {
+                        var idx = i;
+                        var img = product.Images[i];
+                        <button type="button"
+                                class="thumb @(idx == selectedImage ? "is-active" : null)"
+                                title="@img.AltText"
+                                @onclick="@(() => selectedImage = idx)">
+                            @if (!string.IsNullOrEmpty(img.Url))
+                            {
+                                <img class="thumb-img" src="@img.Url" alt="@img.AltText" />
+                            }
+                            else
+                            {
+                                <span class="thumb-emoji" aria-hidden="true">@img.Emoji</span>
+                            }
+                            @if (img.IsPrimary)
+                            {
+                                <span class="thumb-primary" title="Image principale">●</span>
+                            }
+                        </button>
+                    }
+                </div>
+            }
+
+            <MpCard Title="Gérer les images" Subtitle="Ajoutez les photos du produit, réordonnez-les et définissez la photo principale (celle vue en premier par les acheteurs).">
+                <ChildContent>
+                    @if (_mediaError is not null) { <p class="form-error">@_mediaError</p> }
+                    @if (product.Images.Count == 0)
+                    {
+                        <p class="mp-caption">Aucune image. Ajoutez-en une ci-dessous.</p>
+                    }
+                    else
+                    {
+                        <div class="media-list">
+                            @for (int i = 0; i < product.Images.Count; i++)
+                            {
+                                var idx = i;
+                                var img = product.Images[i];
+                                <div class="media-row">
+                                    @if (!string.IsNullOrEmpty(img.Url)) { <img class="media-mini" src="@img.Url" alt="" /> }
+                                    <span class="media-pos mp-num">@(idx + 1)</span>
+                                    @if (img.IsPrimary) { <MpBadge Variant="BadgeVariant.Verified">Principale</MpBadge> }
+                                    <div class="media-actions">
+                                        <button type="button" class="mini-btn" title="Monter" disabled="@(idx == 0)" @onclick="@(() => MoveImage(idx, -1))">
+                                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+                                        </button>
+                                        <button type="button" class="mini-btn" title="Descendre" disabled="@(idx == product.Images.Count - 1)" @onclick="@(() => MoveImage(idx, 1))">
+                                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
+                                        </button>
+                                        @if (!img.IsPrimary)
+                                        {
+                                            <button type="button" class="mini-btn" title="Définir principale" @onclick="@(() => SetPrimary(img.Id))">
+                                                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.1 8.3 22 9.3 17 14.1 18.2 21 12 17.8 5.8 21 7 14.1 2 9.3 8.9 8.3 12 2"/></svg>
+                                            </button>
+                                        }
+                                        <button type="button" class="mini-btn danger" title="Supprimer" @onclick="@(() => RemoveImage(img.Id))"><AppIcon Name="trash" Size="14" /></button>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                    <div class="add-img">
+                        <input class="mp-input" @bind="_imgAlt" placeholder="Texte alternatif (alt) — optionnel" disabled="@_mediaBusy" />
+                        <InputFile OnChange="OnImageSelected" accept="image/*" disabled="@_mediaBusy" />
+                        @if (_mediaBusy)
+                        {
+                            <span class="mp-caption">Détourage en cours… (fond blanc)</span>
+                        }
+                        else
+                        {
+                            <span class="mp-caption">Ajouter une image (détourée automatiquement sur fond blanc)</span>
+                        }
+                    </div>
+                </ChildContent>
+            </MpCard>
+        </div>
+
+        <div class="detail-info">
+            <div class="detail-head">
+                <h1>@product.Name</h1>
+                <MpBadge Variant="@StatusVariant(product.Status)">@StatusLabel(product.Status)</MpBadge>
+            </div>
+            <MpCard Title="Description" Subtitle="Le texte descriptif présenté aux acheteurs. Utilisez « Modifier » (en haut) pour le compléter.">
+                <ChildContent>
+                    @if (string.IsNullOrWhiteSpace(product.Description))
+                    {
+                        <p class="mp-caption">Aucune description.</p>
+                    }
+                    else
+                    {
+                        <p class="desc-text">@product.Description</p>
+                    }
+                </ChildContent>
+            </MpCard>
+
+            <MpCard Title="Informations" Subtitle="Récapitulatif technique du produit : catégorie, marque, identifiants (GTIN/EAN) et nombre de photos.">
+                <ChildContent>
+                    <dl class="spec-list">
+                        @if (!string.IsNullOrWhiteSpace(product.Sku))
+                        {
+                            <div><dt>Référence (SKU)</dt><dd class="mp-num">@product.Sku</dd></div>
+                        }
+                        <div><dt>Statut</dt><dd>@StatusLabel(product.Status)</dd></div>
+                        <div><dt>GTIN</dt><dd class="mp-num">@(string.IsNullOrWhiteSpace(product.Gtin) ? "—" : product.Gtin)</dd></div>
+                        <div><dt>EAN</dt><dd class="mp-num">@(string.IsNullOrWhiteSpace(product.Ean) ? "—" : product.Ean)</dd></div>
+                        <div><dt>Photos</dt><dd class="mp-num">@product.Images.Count</dd></div>
+                    </dl>
+                </ChildContent>
+            </MpCard>
+
+            @if (product.Tags.Count > 0)
+            {
+                <div class="tag-row">
+                    @foreach (var t in product.Tags)
+                    {
+                        <span class="tag-chip">@t</span>
+                    }
+                </div>
+            }
+
+        </div>
+    </div>
+
+    <div class="section-gap"></div>
+
+    <MpCard Title="@($"Variantes ({product.Variants.Count})")" Subtitle="Les déclinaisons du produit (taille, couleur…). Chaque variante a son propre SKU et son propre stock. Ajoutez-en si le produit existe en plusieurs versions.">
+        <HeaderContent>
+            <MpButton Variant="ButtonVariant.Action" Icon="plus" OnClick="OpenVariant">Ajouter une variante</MpButton>
+        </HeaderContent>
+        <ChildContent>
+            @if (product.Variants.Count == 0) { <p class="mp-caption">Aucune variante.</p> }
+            else
+            {
+                <table class="mp-table stack-mobile">
+                    <thead><tr><th>SKU</th><th>Attributs</th><th>Code-barres</th><th class="mp-num">Poids</th><th class="actions-col">Actions</th></tr></thead>
+                    <tbody>
+                        @foreach (var v in product.Variants)
+                        {
+                            <tr>
+                                <td class="mp-num st-title" data-label="SKU">@v.Sku</td>
+                                <td data-label="Attributs">@v.AttributesLabel</td>
+                                <td class="mp-num" data-label="Code-barres">@(string.IsNullOrWhiteSpace(v.Barcode) ? "—" : v.Barcode)</td>
+                                <td class="mp-num" data-label="Poids">@v.WeightGrams g</td>
+                                <td class="actions-col st-actions">
+                                    <div class="row-actions">
+                                        <MpButton Variant="ButtonVariant.Tertiary" OnClick="@(() => OpenEditVariant(v))">Modifier</MpButton>
+                                        <MpButton Variant="ButtonVariant.Danger" OnClick="@(() => RemoveVariant(v.Id))">Supprimer</MpButton>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </ChildContent>
+    </MpCard>
+
+    <MpModal @bind-Visible="_showVariant" Title="@(_variantEditId is null ? "Ajouter une variante" : "Modifier la variante")">
+        <ChildContent>
+            <div class="mp-form">
+                <div class="mp-field">
+                    <label>SKU <span class="mp-caption">(généré, modifiable)</span></label>
+                    <div class="sku-row">
+                        <input class="mp-input" @bind="_variant.Sku" placeholder="Ex. CHAUS-A1B2" />
+                        <button type="button" class="sku-regen" title="Régénérer" @onclick="@(() => _variant.Sku = GenerateSku(product?.Name))"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></button>
+                    </div>
+                </div>
+                <div class="mp-grid-2">
+                    <div class="mp-field">
+                        <label>Code-barres <span class="mp-caption">(EAN-13, généré)</span></label>
+                        <div class="sku-row">
+                            <input class="mp-input" @bind="_variant.Barcode" />
+                            <button type="button" class="sku-regen" title="Régénérer" @onclick="@(() => _variant.Barcode = GenerateBarcode())"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></button>
+                        </div>
+                    </div>
+                    <div class="mp-field"><label>Poids (g)</label><input class="mp-input" type="number" min="0" @bind="_variant.WeightGrams" /></div>
+                </div>
+                @if (_variantEditId is null)
+                {
+                    <div class="mp-field">
+                        <label>Dimensions (mm) <span class="mp-caption">Longueur × Largeur × Hauteur</span></label>
+                        <div class="mp-grid-3">
+                            <input class="mp-input" type="number" min="0" placeholder="Longueur" @bind="_variant.LengthMm" />
+                            <input class="mp-input" type="number" min="0" placeholder="Largeur" @bind="_variant.WidthMm" />
+                            <input class="mp-input" type="number" min="0" placeholder="Hauteur" @bind="_variant.HeightMm" />
+                        </div>
+                    </div>
+                }
+                <div class="mp-field">
+                    <label>Attributs <span class="mp-caption">(ex. Taille / 42, Couleur / Noir)</span></label>
+                    @foreach (var a in _variant.Attributes)
+                    {
+                        <div class="attr-row">
+                            <input class="mp-input" placeholder="Taille" @bind="a.Key" />
+                            <input class="mp-input" placeholder="42" @bind="a.Value" />
+                            <button type="button" class="mini-btn danger" title="Retirer" @onclick="@(() => _variant.Attributes.Remove(a))"><AppIcon Name="x" Size="14" /></button>
+                        </div>
+                    }
+                    <button type="button" class="sku-regen sku-regen-txt" @onclick="@(() => _variant.Attributes.Add(new ProductAttribute()))"><AppIcon Name="plus" Size="14" /> Ajouter un attribut</button>
+                </div>
+                @if (_variantError is not null) { <p class="form-error">@_variantError</p> }
+            </div>
+        </ChildContent>
+        <Footer>
+            <MpButton Variant="ButtonVariant.Secondary" OnClick="@(() => _showVariant = false)">Annuler</MpButton>
+            <MpButton Variant="ButtonVariant.Primary" OnClick="SaveVariant">@(_variantEditId is null ? "Créer la variante" : "Enregistrer")</MpButton>
+        </Footer>
+    </MpModal>
+
+    <div class="section-gap"></div>
+
+    <MpCard Title="Stock &amp; inventaire" Subtitle="Suivez les quantités par lieu d'expédition. « Réceptionner » ajoute du stock entrant, « Ajuster ± » corrige une quantité (perte, inventaire), et « Seuil » déclenche l'alerte de réapprovisionnement.">
+        <ChildContent>
+            @if (product.Variants.Count == 0)
+            {
+                <p class="mp-caption">Le stock se gère par SKU. Ajoutez d'abord une variante.</p>
+            }
+            else
+            {
+                <div class="mp-field stock-sku">
+                    <label>Variante (SKU)</label>
+                    <select class="mp-select" @bind="_stockSku" @bind:after="LoadStock">
+                        @foreach (var v in product.Variants)
+                        {
+                            <option value="@v.Sku">@v.Sku @(v.AttributesLabel is "—" or "" ? "" : "· " + v.AttributesLabel)</option>
+                        }
+                    </select>
+                </div>
+
+                @if (_stockError is not null) { <p class="form-error">@_stockError</p> }
+                @if (_stockItems is null) { <p class="mp-caption">Chargement…</p> }
+                else
+                {
+                    @if (_stockItems.Count == 0) { <p class="mp-caption">Aucun article de stock pour ce SKU.</p> }
+                    else
+                    {
+                        <table class="mp-table stack-mobile">
+                            <thead><tr><th>Lieu</th><th class="mp-num">En stock</th><th class="mp-num">Réservé</th><th class="mp-num">Dispo</th><th>Seuil</th><th class="actions-col">Réapprovisionner</th></tr></thead>
+                            <tbody>
+                                @foreach (var it in _stockItems)
+                                {
+                                    <tr>
+                                        <td class="st-title" data-label="Lieu">@LocationName(it.LocationId)</td>
+                                        <td class="mp-num" data-label="En stock">@it.OnHand</td>
+                                        <td class="mp-num" data-label="Réservé">@it.Reserved</td>
+                                        <td class="mp-num" data-label="Dispo">@it.Available @if (it.IsLowStock) { <MpBadge Variant="BadgeVariant.Rupture">Bas</MpBadge> }</td>
+                                        <td data-label="Seuil">
+                                            <div class="thr-row">
+                                                <input class="mp-input qty" type="number" min="0" @bind="_thrVal[it.Id]" />
+                                                <button type="button" class="mini-btn" title="Définir le seuil" @onclick="@(() => SetThreshold(it.Id))"><AppIcon Name="check" Size="14" /></button>
+                                            </div>
+                                        </td>
+                                        <td class="actions-col st-actions">
+                                            <div class="stock-ops">
+                                                <div class="row-actions stock-recv">
+                                                    <input class="mp-input qty" type="number" min="1" @bind="_recvQty[it.Id]" />
+                                                    <MpButton Variant="ButtonVariant.Primary" OnClick="@(() => Receive(it.Id))">Réceptionner</MpButton>
+                                                </div>
+                                                <div class="row-actions stock-recv">
+                                                    <input class="mp-input qty" type="number" @bind="_adjVal[it.Id]" title="Ajustement (peut être négatif)" />
+                                                    <MpButton Variant="ButtonVariant.Secondary" OnClick="@(() => Adjust(it.Id))">Ajuster ±</MpButton>
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+
+                    <div class="stock-add">
+                        <span class="stock-add-title">Créer un article de stock</span>
+                        <p class="mp-caption stock-add-help">Reliez cette variante à un lieu d'expédition pour commencer à suivre son stock (quantité de départ + seuil d'alerte).</p>
+                        <div class="mp-grid-3">
+                            <div class="mp-field">
+                                <label>Lieu d'expédition</label>
+                                <select class="mp-select" @bind="_newStock.LocationId">
+                                    <option value="">— Choisir un lieu —</option>
+                                    @if (_locations is not null)
+                                    {
+                                        @foreach (var l in _locations) { <option value="@l.Id">@l.Line, @l.City</option> }
+                                    }
+                                </select>
+                            </div>
+                            <div class="mp-field">
+                                <label>Quantité initiale</label>
+                                <input class="mp-input" type="number" min="0" @bind="_newStock.OnHand" />
+                            </div>
+                            <div class="mp-field">
+                                <label>Seuil de réappro.</label>
+                                <input class="mp-input" type="number" min="0" @bind="_newStock.Threshold" />
+                            </div>
+                        </div>
+                        <MpButton Variant="ButtonVariant.Action" Icon="plus" OnClick="CreateStock">Créer l'article</MpButton>
+                    </div>
+                }
+            }
+        </ChildContent>
+    </MpCard>
+
+    <div class="section-gap"></div>
+
+    <MpCard Title="@($"Offres ({( _offers?.Count ?? 0)})")" Subtitle="Le prix de vente et l'état (neuf, occasion…) proposés aux acheteurs. Une offre « Active » rend le produit achetable ; sans offre active, il n'est pas vendu.">
+        <ChildContent>
+            @if (_offers is null) { <p class="mp-caption">Chargement…</p> }
+            else if (_offers.Count == 0) { <p class="mp-caption">Aucune offre. Cliquez sur « Ajouter une offre ».</p> }
+            else
+            {
+                <table class="mp-table stack-mobile">
+                    <thead><tr><th>SKU</th><th class="mp-num">Prix</th><th>Condition</th><th>Statut</th><th class="actions-col">Actions</th></tr></thead>
+                    <tbody>
+                        @foreach (var o in _offers)
+                        {
+                            <tr>
+                                <td class="mp-num st-title" data-label="SKU">@o.Sku</td>
+                                <td class="mp-num" data-label="Prix">
+                                    <div class="price-cell">
+                                        <span class="price-main">@o.EffectiveProductPrice.ToString("N0") @o.Currency</span>
+                                        <span class="price-sub mp-caption">dont @o.EffectiveSellerPrice.ToString("N0") @o.Currency pour vous (prix vendeur)</span>
+                                    </div>
+                                </td>
+                                <td data-label="Condition">@o.Condition</td>
+                                <td data-label="Statut"><MpBadge Variant="@(o.Status == "active" || o.Status == "Active" ? BadgeVariant.Verified : BadgeVariant.Neutral)">@o.Status</MpBadge></td>
+                                <td class="actions-col st-actions">
+                                    <div class="row-actions">
+                                        <MpButton Variant="ButtonVariant.Tertiary" OnClick="@(() => OpenEditOffer(o))">Modifier</MpButton>
+                                        <MpButton Variant="ButtonVariant.Secondary" OnClick="@(() => ToggleOffer(o))">@(IsOfferActive(o.Status) ? "Suspendre" : "Activer")</MpButton>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </ChildContent>
+    </MpCard>
+
+    <div class="section-gap"></div>
+
+    <MpCard Title="@($"Avis clients ({( _reviews?.Count ?? 0)})")" Subtitle="Les avis laissés par les acheteurs. Vous pouvez y répondre publiquement ou signaler un avis inapproprié.">
+        <ChildContent>
+            @if (_reviews is null) { <p class="mp-caption">Chargement…</p> }
+            else if (_reviews.Count == 0) { <p class="mp-caption">Aucun avis sur ce produit.</p> }
+            else
+            {
+                <div class="review-list">
+                    @foreach (var r in _reviews)
+                    {
+                        <div class="review-row">
+                            <div class="review-head">
+                                <strong>@r.Author</strong>
+                                <span class="mp-caption">★ @r.Rating · @r.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy")</span>
+                                @if (r.Flagged)
+                                {
+                                    <MpBadge Variant="BadgeVariant.Rupture">Signalé</MpBadge>
+                                }
+                                else
+                                {
+                                    <button type="button" class="flag-btn" title="Signaler un avis inapproprié" @onclick="@(() => FlagReview(r.Id))"><AppIcon Name="flag" Size="14" /> Signaler</button>
+                                }
+                            </div>
+                            <p class="review-body">@r.Body</p>
+                            @if (!string.IsNullOrWhiteSpace(r.SellerReply))
+                            {
+                                <p class="review-reply"><strong>Votre réponse :</strong> @r.SellerReply</p>
+                            }
+                            else
+                            {
+                                <div class="reply-form">
+                                    <input class="mp-input" placeholder="Répondre à cet avis…" @bind="_replyText[r.Id]" />
+                                    <MpButton Variant="ButtonVariant.Primary" OnClick="@(() => Reply(r.Id))">Répondre</MpButton>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+        </ChildContent>
+    </MpCard>
+
+    <MpModal @bind-Visible="_showOfferEdit" Title="Modifier l'offre">
+        <ChildContent>
+            <div class="mp-form">
+                <div class="price-info">
+                    <span class="price-info-icon"><AppIcon Name="info" Size="16" /></span>
+                    <p class="price-info-text">
+                        Vous fixez votre <strong>prix vendeur</strong> (ce que vous recevez).
+                        La plateforme ajoute @CommissionPct de commission et @ProviderPct de frais provider.
+                        L'acheteur paie donc votre prix +@TotalPct.
+                    </p>
+                </div>
+                <div class="mp-grid-2">
+                    <div class="mp-field"><label>Prix vendeur <span class="mp-caption">(ce que vous touchez)</span></label><input class="mp-input" type="number" step="0.01" @bind="_offerEditPrice" @bind:event="oninput" /></div>
+                    <div class="mp-field">
+                        <label>Devise</label>
+                        <select class="mp-select" @bind="_offerEditCurrency">
+                            @foreach (var c in _currencies) { <option value="@c">@c</option> }
+                        </select>
+                    </div>
+                </div>
+                @PricePreview(_offerEditPrice, _offerEditCurrency)
+                <div class="mp-field"><label>Délai de traitement (jours)</label><input class="mp-input" type="number" min="0" @bind="_offerEditHandling" /></div>
+                @if (_offerEditError is not null) { <p class="form-error">@_offerEditError</p> }
+            </div>
+        </ChildContent>
+        <Footer>
+            <MpButton Variant="ButtonVariant.Secondary" OnClick="@(() => _showOfferEdit = false)">Annuler</MpButton>
+            <MpButton Variant="ButtonVariant.Primary" OnClick="SaveOfferPrice">Enregistrer</MpButton>
+        </Footer>
+    </MpModal>
+
+    <MpModal @bind-Visible="_showEdit" Title="Modifier la fiche produit">
+        <ChildContent>
+            <div class="mp-form">
+                <div class="mp-field"><label>Nom</label><input class="mp-input" @bind="_edit.Name" /></div>
+                <div class="mp-field"><label>Description</label><textarea class="mp-textarea" rows="3" @bind="_edit.Description"></textarea></div>
+                <div class="mp-field">
+                    <label>Marque</label>
+                    <select class="mp-select" @bind="_edit.BrandId">
+                        <option value="">— Aucune marque —</option>
+                        @if (_brands is not null)
+                        {
+                            @foreach (var b in _brands) { <option value="@b.Id">@b.Name</option> }
+                        }
+                    </select>
+                </div>
+                <div class="mp-grid-2">
+                    <div class="mp-field"><label>GTIN</label><input class="mp-input" @bind="_edit.Gtin" /></div>
+                    <div class="mp-field"><label>EAN</label><input class="mp-input" @bind="_edit.Ean" /></div>
+                </div>
+                <div class="mp-field"><label>Tags <span class="mp-caption">(séparés par des virgules)</span></label><input class="mp-input" @bind="_edit.TagsText" /></div>
+                <div class="mp-field"><label>Groupe de produit <span class="mp-caption">(GUID, optionnel)</span></label><input class="mp-input" @bind="_edit.ProductGroupIdText" placeholder="Laisser vide si non applicable" /></div>
+                <div class="mp-field">
+                    <label>Attributs <span class="mp-caption">(clé / valeur)</span></label>
+                    @foreach (var a in _edit.Attributes)
+                    {
+                        <div class="attr-row">
+                            <input class="mp-input" placeholder="Couleur" @bind="a.Key" />
+                            <input class="mp-input" placeholder="Noir" @bind="a.Value" />
+                            <button type="button" class="mini-btn danger" title="Retirer" @onclick="@(() => _edit.Attributes.Remove(a))"><AppIcon Name="x" Size="14" /></button>
+                        </div>
+                    }
+                    <button type="button" class="sku-regen sku-regen-txt" @onclick="@(() => _edit.Attributes.Add(new ProductAttribute()))"><AppIcon Name="plus" Size="14" /> Ajouter un attribut</button>
+                </div>
+                @if (_editError is not null) { <p class="form-error">@_editError</p> }
+            </div>
+        </ChildContent>
+        <Footer>
+            <MpButton Variant="ButtonVariant.Secondary" OnClick="@(() => _showEdit = false)">Annuler</MpButton>
+            <MpButton Variant="ButtonVariant.Primary" OnClick="SaveEdit">Enregistrer</MpButton>
+        </Footer>
+    </MpModal>
+
+    <MpModal @bind-Visible="_showOffer" Title="Ajouter une offre">
+        <ChildContent>
+            <div class="mp-form">
+                <div class="price-info">
+                    <span class="price-info-icon"><AppIcon Name="info" Size="16" /></span>
+                    <p class="price-info-text">
+                        Vous fixez votre <strong>prix vendeur</strong> (ce que vous recevez).
+                        La plateforme ajoute @CommissionPct de commission et @ProviderPct de frais provider.
+                        L'acheteur paie donc votre prix +@TotalPct.
+                    </p>
+                </div>
+                <div class="mp-field">
+                    <label>SKU <span class="mp-caption">(généré, modifiable)</span></label>
+                    <div class="sku-row">
+                        <input class="mp-input" @bind="_offer.Sku" placeholder="Ex. CHAUS-A1B2" />
+                        <button type="button" class="sku-regen" title="Régénérer" @onclick="RegenerateSku"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></button>
+                    </div>
+                </div>
+                <div class="mp-grid-2">
+                    <div class="mp-field"><label>Prix vendeur <span class="mp-caption">(ce que vous touchez)</span></label><input class="mp-input" type="number" step="0.01" @bind="_offer.Price" @bind:event="oninput" /></div>
+                    <div class="mp-field">
+                        <label>Devise</label>
+                        <select class="mp-select" @bind="_offer.Currency">
+                            @foreach (var c in _currencies)
+                            {
+                                <option value="@c">@c</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+                @PricePreview(_offer.Price, _offer.Currency)
+                <div class="mp-grid-2">
+                    <div class="mp-field">
+                        <label>Condition</label>
+                        <select class="mp-select" @bind="_offer.Condition">
+                            <option value="New">Neuf</option>
+                            <option value="Used">Occasion</option>
+                            <option value="Refurbished">Reconditionné</option>
+                        </select>
+                    </div>
+                    <div class="mp-field">
+                        <label>Traitement (jours)</label>
+                        <input class="mp-input" type="number" min="0" @bind="_offer.HandlingTime" />
+                    </div>
+                </div>
+                <div class="mp-field">
+                    <label>Expédié depuis</label>
+                    @if (_locations is null)
+                    {
+                        <p class="mp-caption">Chargement des lieux…</p>
+                    }
+                    else if (_locations.Count == 0)
+                    {
+                        <p class="form-error">Aucun lieu d'expédition. Créez-en un dans « Ma boutique » avant d'ajouter une offre.</p>
+                    }
+                    else
+                    {
+                        <select class="mp-select" @bind="_offer.LocationId">
+                            <option value="">— Choisir un lieu —</option>
+                            @foreach (var l in _locations)
+                            {
+                                <option value="@l.Id">@l.Line, @l.City (@l.Country)</option>
+                            }
+                        </select>
+                    }
+                </div>
+                @if (_offerError is not null) { <p class="form-error">@_offerError</p> }
+            </div>
+        </ChildContent>
+        <Footer>
+            <MpButton Variant="ButtonVariant.Secondary" OnClick="@(() => _showOffer = false)">Annuler</MpButton>
+            <MpButton Variant="ButtonVariant.Primary" OnClick="CreateOffer">Créer l'offre</MpButton>
+        </Footer>
+    </MpModal>
+}
+
+<style>
+    .breadcrumb {
+        display: flex;
+        align-items: center;
+        gap: var(--mp-space-2);
+        font-size: 13px;
+        color: var(--mp-text-muted);
+        margin-bottom: var(--mp-space-4);
+    }
+
+    .detail-grid {
+        display: grid;
+        /* minmax(0, 1fr) : empêche la colonne de droite de déborder au-delà de la
+           largeur du contenu (la barre d'actions en « nowrap » la faisait gonfler),
+           pour que la rangée du haut reste alignée avec les cartes en dessous. */
+        grid-template-columns: 360px minmax(0, 1fr);
+        gap: var(--mp-space-6);
+        align-items: start;
+    }
+
+    .gallery { display: flex; flex-direction: column; gap: var(--mp-space-2); }
+
+    .detail-image {
+        height: 320px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 120px;
+        background-color: var(--mp-surface-2);
+    }
+
+    .detail-photo {
+        width: 100%;
+        height: 320px;
+        object-fit: cover;
+        display: block;
+        background-color: var(--mp-surface-2);
+    }
+
+    .thumb-img { width: 100%; height: 100%; object-fit: cover; border-radius: var(--mp-radius-md); }
+
+    .gallery-caption { text-align: center; }
+
+    .thumbs {
+        display: flex;
+        gap: var(--mp-space-2);
+        flex-wrap: wrap;
+    }
+    .thumb {
+        position: relative;
+        appearance: none;
+        cursor: pointer;
+        width: 64px;
+        height: 64px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 30px;
+        background-color: var(--mp-surface);
+        border: 1px solid var(--mp-border);
+        border-radius: var(--mp-radius-md);
+        transition: border-color .15s ease;
+    }
+    .thumb:hover { border-color: var(--mp-primary-400); }
+    .thumb.is-active { border-color: var(--mp-primary); border-width: 2px; }
+    .thumb-emoji { line-height: 1; }
+    .thumb-primary {
+        position: absolute;
+        top: 2px;
+        right: 4px;
+        font-size: 9px;
+        color: var(--mp-primary);
+    }
+
+    .detail-info { display: flex; flex-direction: column; gap: var(--mp-space-3); }
+    .detail-head { display: flex; align-items: center; justify-content: space-between; gap: var(--mp-space-3); }
+
+    .detail-price { display: flex; align-items: center; gap: var(--mp-space-3); }
+    .dp-now { font-size: 34px; font-weight: 700; color: var(--mp-primary-dark); }
+    .dp-old { font-size: 16px; color: var(--mp-text-muted); text-decoration: line-through; }
+
+    .detail-status { display: flex; align-items: center; gap: var(--mp-space-3); }
+
+    .spec-list { display: flex; flex-direction: column; gap: 0; margin: 0; }
+    .spec-list > div {
+        display: flex;
+        justify-content: space-between;
+        gap: var(--mp-space-4);
+        padding: var(--mp-space-3) 0;
+        border-bottom: 0.5px solid var(--mp-border);
+    }
+    .spec-list > div:last-child { border-bottom: 0; }
+    .spec-list dt { color: var(--mp-text-muted); font-size: 14px; }
+    .spec-list dd { margin: 0; font-weight: 500; }
+
+    .detail-actions {
+        display: flex; gap: var(--mp-space-2); flex-wrap: nowrap; align-items: center;
+        margin: var(--mp-space-2) 0 var(--mp-space-4);
+        padding: var(--mp-space-3);
+        background: var(--mp-surface, #fff);
+        border: 1px solid var(--mp-border);
+        border-radius: var(--mp-radius-md, 10px);
+        box-shadow: 0 1px 2px rgba(0,0,0,.04);
+        overflow-x: auto;            /* une seule ligne ; défilement si l'écran est étroit */
+    }
+    /* Les boutons/badges gardent leur taille (pas de compression) et ne reviennent pas à la ligne. */
+    .detail-actions > * { flex: 0 0 auto; white-space: nowrap; }
+
+    /* --- Mobile : barre d'actions du haut en ICÔNES SEULES (pas de texte). --- */
+    @@media (max-width: 640.98px) {
+        .detail-actions { padding: var(--mp-space-2); gap: 8px; justify-content: flex-start; }
+        .detail-actions .mp-btn-label { display: none; }        /* on masque le texte */
+        .detail-actions .mp-btn {
+            padding: 0; width: 42px; height: 42px; min-width: 42px;
+            display: inline-flex; align-items: center; justify-content: center;
+        }
+        .detail-actions .mp-btn-icon { margin: 0; }
+        /* Le badge de statut passe à la ligne suivante en pastille compacte. */
+        .detail-actions { flex-wrap: wrap; overflow-x: visible; }
+        .detail-actions .mp-badge { order: 99; flex-basis: 100%; }
+
+        /* Boutons d'en-tête de section (Ajouter une variante / une offre) en icône seule. */
+        .mp-card-header .mp-btn-label { display: none; }
+        .mp-card-header .mp-btn {
+            padding: 0; width: 44px; min-width: 44px; flex: 0 0 auto;
+            display: inline-flex; align-items: center; justify-content: center;
+        }
+        .mp-card-header .mp-btn-icon { margin: 0; }
+    }
+
+    .tag-row { display: flex; flex-wrap: wrap; gap: var(--mp-space-2); }
+    .tag-chip { background: var(--mp-surface-2, #eef2f7); border-radius: 999px; padding: 2px 10px; font-size: 12px; }
+    .desc-text { white-space: pre-wrap; margin: 0; }
+    .mp-form { display: flex; flex-direction: column; gap: var(--mp-space-3); }
+    .mp-field { display: flex; flex-direction: column; gap: var(--mp-space-1); }
+    .mp-field label { font-size: 13px; color: var(--mp-text-muted); }
+    .mp-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--mp-space-3); }
+    .form-error { color: var(--mp-danger, #c0392b); font-size: 13px; }
+    .sku-row { display: flex; gap: var(--mp-space-2); align-items: stretch; }
+    .sku-row .mp-input { flex: 1; }
+    .sku-regen { display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid var(--mp-border); background: var(--mp-surface); border-radius: var(--mp-radius-md); cursor: pointer; padding: 0 12px; font-size: 16px; color: var(--mp-text); }
+    .sku-regen:hover { border-color: var(--mp-primary); color: var(--mp-primary); }
+    .sku-regen-txt { align-self: flex-start; padding: 6px 12px; font-size: 13px; font-weight: 500; }
+
+    /* --- Aperçu tarification (modale d'offre) --- */
+    .price-info {
+        display: flex; gap: var(--mp-space-2); align-items: flex-start;
+        background: var(--mp-primary-light, #eef3fb);
+        border: 1px solid var(--mp-primary-200, var(--mp-border));
+        border-radius: var(--mp-radius-md);
+        padding: var(--mp-space-3);
+    }
+    .price-info-icon { color: var(--mp-primary, #1d4ed8); flex: 0 0 auto; margin-top: 1px; }
+    .price-info-text { margin: 0; font-size: 13px; color: var(--mp-text); line-height: 1.45; }
+    .price-preview {
+        display: flex; flex-direction: column;
+        border: 1px solid var(--mp-border);
+        border-radius: var(--mp-radius-lg);
+        padding: var(--mp-space-3) var(--mp-space-4);
+        background: var(--mp-surface-2, #f7f9fc);
+    }
+    .pp-row { display: flex; align-items: baseline; justify-content: space-between; gap: var(--mp-space-4); padding: 4px 0; font-size: 14px; }
+    .pp-row > span:first-child { color: var(--mp-text-muted); }
+    .pp-add > span:last-child { color: var(--mp-text-muted); }
+    .pp-total {
+        margin-top: 4px; padding-top: var(--mp-space-2);
+        border-top: 1px solid var(--mp-border);
+        font-weight: 700;
+    }
+    .pp-total > span:first-child { color: var(--mp-text); }
+    .pp-total > span:last-child { color: var(--mp-primary-dark, #11324d); font-size: 16px; }
+
+    .price-cell { display: flex; flex-direction: column; gap: 1px; }
+    .price-main { font-weight: 600; }
+    .price-sub { font-weight: 400; }
+
+    .section-gap { height: var(--mp-space-4); }
+    .row-actions { display: flex; gap: var(--mp-space-2); }
+    /* Aligne les boutons sous l'en-tête « ACTIONS » (colonne à droite). */
+    .mp-table td.actions-col { text-align: right; }
+    .mp-table td.actions-col .row-actions { justify-content: flex-end; }
+    .media-list { display: flex; flex-direction: column; gap: var(--mp-space-2); margin-bottom: var(--mp-space-3); }
+    .media-row { display: flex; align-items: center; gap: var(--mp-space-2); padding: 4px 0; border-bottom: 0.5px solid var(--mp-border); }
+    .media-mini { width: 40px; height: 40px; object-fit: cover; border-radius: 6px; }
+    .media-pos { width: 20px; color: var(--mp-text-muted); }
+    .media-actions { display: flex; gap: 4px; margin-left: auto; }
+    .mini-btn { display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--mp-border); background: var(--mp-surface); border-radius: 6px; cursor: pointer; width: 28px; height: 28px; font-size: 13px; color: var(--mp-text); }
+    .mini-btn:hover:not(:disabled) { border-color: var(--mp-primary); }
+    .mini-btn:disabled { opacity: .4; cursor: default; }
+    .mini-btn.danger:hover { border-color: var(--mp-danger); color: var(--mp-danger); }
+    .add-img { display: flex; flex-direction: column; gap: 6px; margin-top: var(--mp-space-2); }
+    .add-img input[type=file] { font-size: 13px; color: var(--mp-text-muted); }
+    .add-img input[type=file]::file-selector-button {
+        background: var(--mp-primary, #1d4ed8); color: #fff; border: none;
+        border-radius: 8px; padding: 8px 14px; margin-right: 10px;
+        font-weight: 600; font-size: 13px; cursor: pointer;
+    }
+    .add-img input[type=file]::file-selector-button:hover { filter: brightness(1.08); }
+    .stock-add-title { font-weight: 600; font-size: 14px; }
+    .stock-add-help { margin: 4px 0 var(--mp-space-3); }
+    .review-list { display: flex; flex-direction: column; gap: var(--mp-space-3); }
+    .review-row { border-bottom: 0.5px solid var(--mp-border); padding-bottom: var(--mp-space-3); }
+    .review-head { display: flex; align-items: baseline; gap: var(--mp-space-2); }
+    .review-body { margin: 4px 0; }
+    .review-reply { margin: 4px 0 0; font-size: 13px; color: var(--mp-text-muted); }
+    .reply-form { display: flex; gap: var(--mp-space-2); margin-top: var(--mp-space-2); }
+    .reply-form .mp-input { flex: 1; }
+    .attr-row { display: grid; grid-template-columns: 1fr 1fr auto; gap: var(--mp-space-2); margin-bottom: var(--mp-space-2); align-items: center; }
+    .stock-sku { max-width: 360px; margin-bottom: var(--mp-space-3); }
+    .stock-recv, .thr-row { display: flex; gap: 6px; align-items: center; }
+    .thr-row { justify-content: flex-start; }
+    .mp-input.qty { width: 58px; }
+    /* Réceptionner + Ajuster sur une seule ligne (côte à côte), alignés à droite. */
+    .stock-ops { display: flex; flex-direction: row; flex-wrap: nowrap; gap: var(--mp-space-3); align-items: center; justify-content: flex-end; }
+    .stock-ops .stock-recv { flex: 0 0 auto; }
+    .flag-btn { border: none; background: none; cursor: pointer; color: var(--mp-text-muted, #888); font-size: 12px; padding: 0; display: inline-flex; align-items: center; gap: 4px; }
+    .flag-btn:hover { color: var(--mp-danger); }
+    .stock-add { margin-top: var(--mp-space-4); display: flex; flex-direction: column; gap: var(--mp-space-2); }
+    .mp-grid-3 { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: var(--mp-space-2); }
+
+    @@media (max-width: 760px) {
+        /* Colonne unique en FLEX (pas grid) : les enfants s'étirent à 100% de la
+           largeur, exactement comme les cartes de section en dessous → alignement
+           parfait (grid 1fr = minmax(auto,1fr) pouvait déborder via min-content). */
+        .detail-grid { display: flex; flex-direction: column; gap: var(--mp-space-4); }
+        .detail-grid > .gallery, .detail-grid > .detail-info { min-width: 0; width: 100%; }
+        .detail-image { height: 220px; font-size: 88px; }
+    }
+
+    /* Mobile : la cellule « Réapprovisionner » du stock s'empile verticalement
+       (Réceptionner puis Ajuster), boutons pleine largeur, plus de débordement. */
+    @@media (max-width: 640.98px) {
+        .stock-ops { flex-direction: column; align-items: stretch; justify-content: flex-start; gap: var(--mp-space-2); width: 100%; }
+        .stock-ops .stock-recv { width: 100%; justify-content: flex-start; }
+        .stock-recv .mp-btn { flex: 1; }
+        .mp-input.qty { width: 64px; }
+        .thr-row { justify-content: flex-end; }
+    }
+</style>
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+    private Product? product;
+    private bool _loading = true;
+    private int selectedImage;
+
+    private IReadOnlyList<SellerBrand>? _brands;
+    private IReadOnlyList<Location>? _locations;
+
+    // Devises depuis la configuration (wwwroot/appsettings.json), pas en dur.
+    private string[] _currencies = Array.Empty<string>();
+
+    // --- Offres & avis du produit ---
+    private IReadOnlyList<Offer>? _offers;
+    private IReadOnlyList<Review>? _reviews;
+    private readonly Dictionary<Guid, string> _replyText = new();
+
+    // --- Édition prix d'offre ---
+    private bool _showOfferEdit;
+    private Guid _offerEditId;
+    private double _offerEditPrice;
+    private string _offerEditCurrency = "XOF";
+    private int _offerEditHandling;
+    private int _offerEditHandlingInitial;
+    private double _offerEditPriceInitial;
+    private string _offerEditCurrencyInitial = "";
+    private string? _offerEditError;
+
+    // --- Statut produit ---
+    private string? _statusError;
+
+    // --- Gestion images ---
+    private string? _mediaError;
+    private bool _mediaBusy;
+    private string _imgAlt = "";
+    private const long MaxImageBytes = 5 * 1024 * 1024;
+
+    // --- Ajustement de stock ---
+    private readonly Dictionary<Guid, int> _adjVal = new();
+
+    // --- Ajout / édition de variante ---
+    private bool _showVariant;
+    private Guid? _variantEditId;
+    private string? _variantError;
+    private VariantForm _variant = new();
+
+    // --- Stock / inventaire ---
+    private string _stockSku = "";
+    private IReadOnlyList<InventoryItem>? _stockItems;
+    private string? _stockError;
+    private readonly Dictionary<Guid, int> _recvQty = new();
+    private readonly Dictionary<Guid, int> _thrVal = new();
+    private NewStockForm _newStock = new();
+
+    // --- Édition produit ---
+    private bool _showEdit;
+    private string? _editError;
+    private EditForm _edit = new();
+
+    // --- Ajout d'offre ---
+    private bool _showOffer;
+    private string? _offerError;
+    private OfferForm _offer = new();
+
+    protected override void OnInitialized()
+    {
+        // Lecture sans le binder de configuration (GetChildren suffit côté WASM).
+        var configured = Config.GetSection("Offers:Currencies").GetChildren()
+            .Select(c => c.Value)
+            .Where(v => !string.IsNullOrWhiteSpace(v))
+            .Select(v => v!)
+            .ToArray();
+        _currencies = configured.Length > 0 ? configured : new[] { "XOF", "EUR", "USD" };
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        selectedImage = 0;
+        _loading = true;
+        _offers = null; _reviews = null;
+        try
+        {
+            product = await Api.GetProductDetailAsync(Id);
+        }
+        catch
+        {
+            product = null;
+        }
+        finally
+        {
+            _loading = false;
+        }
+
+        if (product is not null)
+        {
+            await ReloadOffers();
+            await LoadReviews();
+            try { _locations = await Api.ListLocationsAsync(); } catch { _locations = Array.Empty<Location>(); }
+            _stockSku = product.Variants.FirstOrDefault()?.Sku ?? "";
+            await LoadStock();
+        }
+    }
+
+    // ---------- Stock ----------
+    private async Task LoadStock()
+    {
+        _stockError = null;
+        if (string.IsNullOrWhiteSpace(_stockSku)) { _stockItems = Array.Empty<InventoryItem>(); return; }
+        try
+        {
+            _stockItems = await Api.ListInventoryBySkuAsync(_stockSku);
+            foreach (var it in _stockItems)
+            {
+                _recvQty.TryAdd(it.Id, 1);
+                _thrVal[it.Id] = it.ReorderThreshold;
+                _adjVal.TryAdd(it.Id, 0);
+            }
+        }
+        catch (Exception ex) { _stockError = ex.Message; _stockItems = Array.Empty<InventoryItem>(); }
+    }
+
+    private string LocationName(Guid locationId)
+    {
+        var l = _locations?.FirstOrDefault(x => x.Id == locationId);
+        return l is null ? locationId.ToString()[..8] : $"{l.Line}, {l.City}";
+    }
+
+    private async Task Receive(Guid itemId)
+    {
+        var qty = _recvQty.TryGetValue(itemId, out var q) ? q : 0;
+        if (qty <= 0) { _stockError = "Quantité à réceptionner invalide."; return; }
+        try { await Api.ReceiveAsync(itemId, new QuantityRequest(qty)); await LoadStock(); }
+        catch (Exception ex) { _stockError = ex.Message; }
+    }
+
+    private async Task SetThreshold(Guid itemId)
+    {
+        var val = _thrVal.TryGetValue(itemId, out var t) ? t : 0;
+        if (val < 0) { _stockError = "Seuil invalide."; return; }
+        try { await Api.SetReorderThresholdAsync(itemId, new ThresholdRequest(val)); await LoadStock(); }
+        catch (Exception ex) { _stockError = ex.Message; }
+    }
+
+    private async Task Adjust(Guid itemId)
+    {
+        var delta = _adjVal.TryGetValue(itemId, out var d) ? d : 0;
+        if (delta == 0) { _stockError = "L'ajustement ne peut pas être nul."; return; }
+        try { await Api.AdjustAsync(itemId, new DeltaRequest(delta)); await LoadStock(); }
+        catch (Exception ex) { _stockError = ex.Message; }
+    }
+
+    private async Task CreateStock()
+    {
+        _stockError = null;
+        if (string.IsNullOrWhiteSpace(_stockSku)) { _stockError = "Sélectionnez une variante."; return; }
+        if (!Guid.TryParse(_newStock.LocationId, out var locId)) { _stockError = "Choisissez un lieu."; return; }
+        try
+        {
+            await Api.CreateItemAsync(new CreateInventoryItemRequest(_stockSku, locId, _newStock.OnHand, _newStock.Threshold));
+            _newStock = new NewStockForm();
+            await LoadStock();
+        }
+        catch (Exception ex) { _stockError = ex.Message; }
+    }
+
+    private async Task LoadReviews()
+    {
+        try { _reviews = await Api.GetProductReviewsAsync(Id); }
+        catch { _reviews = Array.Empty<Review>(); }
+        foreach (var r in _reviews) _replyText.TryAdd(r.Id, "");
+    }
+
+    private async Task ReloadOffers()
+    {
+        try
+        {
+            var all = await Api.ListOffersAsync();
+            _offers = all.Where(o => o.ProductId == Id).ToList();
+        }
+        catch { _offers = Array.Empty<Offer>(); }
+    }
+
+    private async Task ReloadProduct()
+    {
+        try { product = await Api.GetProductDetailAsync(Id); } catch { /* garde l'état */ }
+        if (selectedImage >= (product?.Images.Count ?? 0)) selectedImage = 0;
+    }
+
+    private static bool IsOfferActive(string s) => s.Equals("active", StringComparison.OrdinalIgnoreCase);
+
+    // ---------- Offres ----------
+    private void OpenEditOffer(Offer o)
+    {
+        _offerEditId = o.Id;
+        // On édite le PRIX VENDEUR (net) ; le BFF l'interprète comme tel.
+        _offerEditPrice = _offerEditPriceInitial = Math.Round(o.EffectiveSellerPrice, 2);
+        _offerEditCurrency = _offerEditCurrencyInitial = o.Currency;
+        _offerEditHandling = _offerEditHandlingInitial = o.HandlingTime;
+        _offerEditError = null;
+        _showOfferEdit = true;
+    }
+
+    private async Task SaveOfferPrice()
+    {
+        if (_offerEditPrice <= 0) { _offerEditError = "Le prix doit être positif."; return; }
+        if (_offerEditHandling < 0) { _offerEditError = "Le délai ne peut pas être négatif."; return; }
+        try
+        {
+            if (_offerEditPrice != _offerEditPriceInitial || _offerEditCurrency != _offerEditCurrencyInitial)
+            {
+                await Api.SetPriceAsync(_offerEditId, new OfferPriceRequest(_offerEditPrice, _offerEditCurrency));
+            }
+            if (_offerEditHandling != _offerEditHandlingInitial)
+            {
+                await Api.SetHandlingTimeAsync(_offerEditId, new HandlingTimeRequest(_offerEditHandling));
+            }
+            _showOfferEdit = false;
+            await ReloadOffers();
+        }
+        catch (Exception ex) { _offerEditError = ex.Message; }
+    }
+
+    private async Task ToggleOffer(Offer o)
+    {
+        var next = IsOfferActive(o.Status) ? "Paused" : "Active";
+        try { await Api.SetStatusAsync(o.Id, new OfferStatusRequest(next)); await ReloadOffers(); }
+        catch { /* ignore */ }
+    }
+
+    // ---------- Avis ----------
+    private async Task Reply(Guid reviewId)
+    {
+        if (!_replyText.TryGetValue(reviewId, out var body) || string.IsNullOrWhiteSpace(body)) return;
+        try
+        {
+            await Api.ReplyAsync(reviewId, body.Trim());
+            await LoadReviews();
+        }
+        catch { /* ignore */ }
+    }
+
+    // ---------- Images ----------
+    private async Task OnImageSelected(InputFileChangeEventArgs e)
+    {
+        _mediaError = null;
+        if (product is null) return;
+        try
+        {
+            var file = e.File;
+            using var ms = new MemoryStream();
+            await file.OpenReadStream(MaxImageBytes).CopyToAsync(ms);
+            var upload = new ProductImageUpload
+            {
+                FileName = file.Name,
+                ContentType = string.IsNullOrEmpty(file.ContentType) ? "image/jpeg" : file.ContentType,
+                Content = ms.ToArray(),
+                AltText = string.IsNullOrWhiteSpace(_imgAlt) ? null : _imgAlt.Trim()
+            };
+
+            // Détourage IA + fond blanc (comme à la création). En cas d'échec
+            // (Cloudinary indispo/non configuré), on téléverse l'originale.
+            _mediaBusy = true;
+            StateHasChanged();
+            try { upload = await Api.ProcessImageAsync(upload); }
+            catch { /* repli : on garde l'originale */ }
+            finally { _mediaBusy = false; }
+
+            await Api.UploadImageAsync(product.Id, upload);
+            _imgAlt = "";
+            await ReloadProduct();
+        }
+        catch (Exception ex) { _mediaError = $"Échec de l'ajout : {ex.Message}"; }
+        finally { _mediaBusy = false; }
+    }
+
+    private async Task SetPrimary(Guid mediaId)
+    {
+        if (product is null) return;
+        try { await Api.SetPrimaryImageAsync(product.Id, mediaId); await ReloadProduct(); }
+        catch (Exception ex) { _mediaError = ex.Message; }
+    }
+
+    private async Task RemoveImage(Guid mediaId)
+    {
+        if (product is null) return;
+        try { await Api.RemoveImageAsync(product.Id, mediaId); await ReloadProduct(); }
+        catch (Exception ex) { _mediaError = ex.Message; }
+    }
+
+    private async Task MoveImage(int index, int delta)
+    {
+        if (product is null) return;
+        var ids = product.Images.Select(i => i.Id).ToList();
+        var target = index + delta;
+        if (target < 0 || target >= ids.Count) return;
+        (ids[index], ids[target]) = (ids[target], ids[index]);
+        try { await Api.ReorderImagesAsync(product.Id, ids); await ReloadProduct(); }
+        catch (Exception ex) { _mediaError = ex.Message; }
+    }
+
+    // ---------- Variantes ----------
+    private void OpenVariant()
+    {
+        _variantEditId = null;
+        _variant = new VariantForm { Sku = GenerateSku(product?.Name), Barcode = GenerateBarcode() };
+        _variant.Attributes.Add(new ProductAttribute());
+        _variantError = null;
+        _showVariant = true;
+    }
+
+    /// <summary>Génère un code-barres EAN-13 valide (12 chiffres aléatoires + clé de contrôle).</summary>
+    private static string GenerateBarcode()
+    {
+        var rng = Random.Shared;
+        var digits = new int[13];
+        for (var i = 0; i < 12; i++) digits[i] = rng.Next(0, 10);
+
+        var sum = 0;
+        for (var i = 0; i < 12; i++) sum += digits[i] * (i % 2 == 0 ? 1 : 3);
+        digits[12] = (10 - (sum % 10)) % 10;
+
+        return string.Concat(digits);
+    }
+
+    private void OpenEditVariant(ProductVariant v)
+    {
+        _variantEditId = v.Id;
+        _variant = new VariantForm
+        {
+            Sku = v.Sku,
+            Barcode = v.Barcode ?? "",
+            WeightGrams = v.WeightGrams,
+            Attributes = v.Attributes.Select(a => new ProductAttribute { Key = a.Key, Value = a.Value }).ToList()
+        };
+        if (_variant.Attributes.Count == 0) _variant.Attributes.Add(new ProductAttribute());
+        _variantError = null;
+        _showVariant = true;
+    }
+
+    private async Task SaveVariant()
+    {
+        if (product is null) return;
+        if (string.IsNullOrWhiteSpace(_variant.Sku)) { _variantError = "Le SKU de la variante est requis."; return; }
+
+        var attrs = _variant.Attributes
+            .Where(a => !string.IsNullOrWhiteSpace(a.Key))
+            .GroupBy(a => a.Key.Trim())
+            .ToDictionary(g => g.Key, g => g.Last().Value?.Trim() ?? "");
+
+        var request = new VariantRequest(
+            _variant.Sku.Trim(),
+            attrs.Count > 0 ? attrs : null,
+            string.IsNullOrWhiteSpace(_variant.Barcode) ? null : _variant.Barcode.Trim(),
+            _variant.WeightGrams,
+            _variant.LengthMm > 0 ? _variant.LengthMm : null,
+            _variant.WidthMm > 0 ? _variant.WidthMm : null,
+            _variant.HeightMm > 0 ? _variant.HeightMm : null);
+
+        try
+        {
+            if (_variantEditId is { } vid)
+            {
+                await Api.UpdateVariantAsync(product.Id, vid, request);
+            }
+            else
+            {
+                await Api.AddVariantAsync(product.Id, request);
+            }
+            _showVariant = false;
+            await ReloadProduct();
+        }
+        catch (Exception ex) { _variantError = ex.Message; }
+    }
+
+    private async Task RemoveVariant(Guid variantId)
+    {
+        if (product is null) return;
+        try { await Api.RemoveVariantAsync(product.Id, variantId); await ReloadProduct(); }
+        catch (Exception ex) { _variantError = ex.Message; }
+    }
+
+    private async Task ChangeStatus(string status)
+    {
+        if (product is null) return;
+        _statusError = null;
+        try { await Api.SetProductStatusAsync(product.Id, new CatalogStatusRequest(status)); await ReloadProduct(); }
+        catch (Exception ex) { _statusError = $"Changement de statut impossible : {ex.Message}"; }
+    }
+
+    private async Task FlagReview(Guid reviewId)
+    {
+        try { await Api.FlagAsync(reviewId); await LoadReviews(); }
+        catch { /* ignore */ }
+    }
+
+    private async Task DeleteProduct()
+    {
+        if (product is null) return;
+        await Api.DeleteProductAsync(product.Id);
+        Nav.NavigateTo("produits");
+    }
+
+    // ---------- Édition ----------
+    private async Task OpenEdit()
+    {
+        if (product is null) return;
+        _editError = null;
+        _edit = new EditForm
+        {
+            Name = product.Name,
+            Description = product.Description ?? "",
+            Gtin = product.Gtin ?? "",
+            Ean = product.Ean ?? "",
+            TagsText = string.Join(", ", product.Tags),
+            ProductGroupIdText = product.ProductGroupId?.ToString() ?? "",
+            Attributes = product.Attributes.Select(a => new ProductAttribute { Key = a.Key, Value = a.Value }).ToList()
+        };
+        _showEdit = true;
+        if (_brands is null)
+        {
+            try { _brands = await Api.ListBrandsAsync(); } catch { _brands = Array.Empty<SellerBrand>(); }
+        }
+    }
+
+    private async Task SaveEdit()
+    {
+        if (product is null) return;
+        if (string.IsNullOrWhiteSpace(_edit.Name)) { _editError = "Le nom est requis."; return; }
+
+        var tags = _edit.TagsText.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+        Guid? brandId = Guid.TryParse(_edit.BrandId, out var b) ? b : null;
+
+        Guid? productGroupId = null;
+        if (!string.IsNullOrWhiteSpace(_edit.ProductGroupIdText))
+        {
+            if (!Guid.TryParse(_edit.ProductGroupIdText.Trim(), out var pgid)) { _editError = "Le groupe de produit doit être un GUID valide."; return; }
+            productGroupId = pgid;
+        }
+
+        var attrs = _edit.Attributes
+            .Where(a => !string.IsNullOrWhiteSpace(a.Key))
+            .GroupBy(a => a.Key.Trim())
+            .ToDictionary(g => g.Key, g => g.Last().Value?.Trim() ?? "");
+
+        try
+        {
+            await Api.UpdateProductAsync(product.Id, new UpdateProductRequest(
+                _edit.Name.Trim(),
+                string.IsNullOrWhiteSpace(_edit.Description) ? null : _edit.Description.Trim(),
+                BrandId: brandId,
+                Gtin: string.IsNullOrWhiteSpace(_edit.Gtin) ? null : _edit.Gtin.Trim(),
+                Ean: string.IsNullOrWhiteSpace(_edit.Ean) ? null : _edit.Ean.Trim(),
+                ProductGroupId: productGroupId,
+                Attributes: attrs.Count > 0 ? attrs : null,
+                Tags: tags.Count > 0 ? tags : null));
+            _showEdit = false;
+            product = await Api.GetProductDetailAsync(Id);
+        }
+        catch (Exception ex) { _editError = ex.Message; }
+    }
+
+    // ---------- Ajout d'offre ----------
+    private async Task OpenOffer()
+    {
+        _offerError = null;
+        _offer = new OfferForm { Sku = GenerateSku(product?.Name) };
+        _showOffer = true;
+        if (_locations is null)
+        {
+            try { _locations = await Api.ListLocationsAsync(); } catch { _locations = Array.Empty<Location>(); }
+        }
+    }
+
+    private void RegenerateSku() => _offer.Sku = GenerateSku(product?.Name);
+
+    // ---------- Aperçu de tarification (prix vendeur → prix acheteur) ----------
+    // Constantes alignées sur la config backend (10% commission + 5% frais provider).
+    private static string CommissionPct => $"{OfferPricing.CommissionRate * 100:0}%";
+    private static string ProviderPct => $"{OfferPricing.ProviderFeeRate * 100:0}%";
+    private static string TotalPct => $"{(OfferPricing.CommissionRate + OfferPricing.ProviderFeeRate) * 100:0}%";
+
+    /// <summary>Aperçu EN DIRECT du calcul : prix vendeur → commission → frais → prix acheteur.</summary>
+    private RenderFragment PricePreview(double sellerPrice, string currency) => builder =>
+    {
+        var seller = sellerPrice > 0 ? sellerPrice : 0;
+        var commission = OfferPricing.Commission(seller);
+        var providerFee = OfferPricing.ProviderFee(seller);
+        var productPrice = OfferPricing.ProductPrice(seller);
+        var cur = string.IsNullOrWhiteSpace(currency) ? "XOF" : currency;
+
+        builder.OpenElement(0, "div");
+        builder.AddAttribute(1, "class", "price-preview");
+
+        builder.OpenElement(2, "div");
+        builder.AddAttribute(3, "class", "pp-row");
+        builder.OpenElement(4, "span"); builder.AddContent(5, "Prix vendeur (ce que vous touchez)"); builder.CloseElement();
+        builder.OpenElement(6, "span"); builder.AddAttribute(7, "class", "mp-num"); builder.AddContent(8, $"{seller:N0} {cur}"); builder.CloseElement();
+        builder.CloseElement();
+
+        builder.OpenElement(9, "div");
+        builder.AddAttribute(10, "class", "pp-row pp-add");
+        builder.OpenElement(11, "span"); builder.AddContent(12, $"Commission plateforme ({CommissionPct})"); builder.CloseElement();
+        builder.OpenElement(13, "span"); builder.AddAttribute(14, "class", "mp-num"); builder.AddContent(15, $"+{commission:N0} {cur}"); builder.CloseElement();
+        builder.CloseElement();
+
+        builder.OpenElement(16, "div");
+        builder.AddAttribute(17, "class", "pp-row pp-add");
+        builder.OpenElement(18, "span"); builder.AddContent(19, $"Frais provider ({ProviderPct})"); builder.CloseElement();
+        builder.OpenElement(20, "span"); builder.AddAttribute(21, "class", "mp-num"); builder.AddContent(22, $"+{providerFee:N0} {cur}"); builder.CloseElement();
+        builder.CloseElement();
+
+        builder.OpenElement(23, "div");
+        builder.AddAttribute(24, "class", "pp-row pp-total");
+        builder.OpenElement(25, "span"); builder.AddContent(26, "Prix payé par l'acheteur"); builder.CloseElement();
+        builder.OpenElement(27, "span"); builder.AddAttribute(28, "class", "mp-num"); builder.AddContent(29, $"{productPrice:N0} {cur}"); builder.CloseElement();
+        builder.CloseElement();
+
+        builder.CloseElement();
+    };
+
+    /// <summary>SKU auto : préfixe alphanumérique du nom (max 6) + suffixe aléatoire de 4.</summary>
+    private static string GenerateSku(string? name)
+    {
+        var prefix = new string((name ?? "PRD")
+            .ToUpperInvariant()
+            .Where(char.IsLetterOrDigit)
+            .Take(6)
+            .ToArray());
+        if (prefix.Length == 0) prefix = "PRD";
+
+        const string alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+        var rng = Random.Shared;
+        var suffix = new string(Enumerable.Range(0, 4).Select(_ => alphabet[rng.Next(alphabet.Length)]).ToArray());
+        return $"{prefix}-{suffix}";
+    }
+
+    private async Task CreateOffer()
+    {
+        if (product is null) return;
+        if (string.IsNullOrWhiteSpace(_offer.Sku)) { _offerError = "Le SKU est requis."; return; }
+        if (_offer.Price <= 0) { _offerError = "Le prix doit être positif."; return; }
+        if (!Guid.TryParse(_offer.LocationId, out var locId)) { _offerError = "Choisissez un lieu d'expédition."; return; }
+
+        try
+        {
+            await Api.CreateOfferAsync(new CreateOfferRequest(
+                ProductId: product.Id,
+                Sku: _offer.Sku.Trim(),
+                BasePriceAmount: _offer.Price,
+                Currency: _offer.Currency,
+                Condition: _offer.Condition,
+                FulfillmentType: "Fbs",   // Fulfilled by Seller (le vendeur expédie)
+                ShipFromLocationId: locId,
+                HandlingTime: _offer.HandlingTime));
+            _showOffer = false;
+            await ReloadOffers();
+            await Toast.Success("Offre créée et mise en ligne 🎉");
+            await Toast.Celebrate();
+        }
+        catch (Exception ex) { _offerError = ex.Message; await Toast.Error("Création de l'offre impossible : " + ex.Message); }
+    }
+
+    private sealed class EditForm
+    {
+        public string Name { get; set; } = "";
+        public string Description { get; set; } = "";
+        public string BrandId { get; set; } = "";
+        public string Gtin { get; set; } = "";
+        public string Ean { get; set; } = "";
+        public string TagsText { get; set; } = "";
+        public string ProductGroupIdText { get; set; } = "";
+        public List<ProductAttribute> Attributes { get; set; } = new();
+    }
+
+    private sealed class OfferForm
+    {
+        public string Sku { get; set; } = "";
+        public double Price { get; set; }
+        public string Currency { get; set; } = "XOF";
+        public string Condition { get; set; } = "New";
+        public string LocationId { get; set; } = "";
+        public int HandlingTime { get; set; } = 2;
+    }
+
+    private sealed class VariantForm
+    {
+        public string Sku { get; set; } = "";
+        public string Barcode { get; set; } = "";
+        public int WeightGrams { get; set; }
+        public int LengthMm { get; set; }
+        public int WidthMm { get; set; }
+        public int HeightMm { get; set; }
+        public List<ProductAttribute> Attributes { get; set; } = new();
+    }
+
+    private sealed class NewStockForm
+    {
+        public string LocationId { get; set; } = "";
+        public int OnHand { get; set; }
+        public int Threshold { get; set; }
+    }
+
+    private ProductImage? CurrentImage =>
+        product is not null && product.Images.Count > 0
+            ? product.Images[Math.Clamp(selectedImage, 0, product.Images.Count - 1)]
+            : null;
+
+    private string CurrentImageEmoji => CurrentImage?.Emoji ?? product?.Emoji ?? "📦";
+
+    private static BadgeVariant StatusVariant(string s) => s switch
+    {
+        "Active" => BadgeVariant.Verified,
+        "Archived" => BadgeVariant.Rupture,
+        _ => BadgeVariant.Neutral
+    };
+
+    private static string StatusLabel(string s) => s switch
+    {
+        "Active" => "Publié",
+        "Archived" => "Archivé",
+        "Draft" => "Brouillon",
+        _ => string.IsNullOrWhiteSpace(s) ? "—" : s
+    };
+}

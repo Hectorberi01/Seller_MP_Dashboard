@@ -1,0 +1,242 @@
+@inherits LayoutComponentBase
+@implements IDisposable
+@inject AuthState Auth
+@inject NavigationManager Nav
+@inject ISellerApi Api
+
+@if (Auth.IsAuthenticated)
+{
+    <div class="page">
+        <div class="sidebar">
+            <NavMenu/>
+        </div>
+
+        <main>
+            <div class="top-row">
+                <a class="top-brand" href="" aria-label="Accueil HbaExpress Pro">
+                    <img class="top-brand-logo" src="_content/HbaExpress.Shared/img/hbaexpress-icon.png" alt="" />
+                    <span class="top-brand-name">HbaExpress<span class="top-brand-pro">Pro</span></span>
+                </a>
+                <div class="top-search">
+                    <span class="top-search-ico" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                    </span>
+                    <input class="top-search-input" type="search"
+                           placeholder="Rechercher une commande, un produit…"
+                           aria-label="Rechercher"
+                           @bind="_searchTerm" @bind:event="oninput"
+                           @onkeydown="OnSearchKeyDown" />
+                </div>
+
+                <div class="top-actions">
+                    <span class="top-verif" title="Boutique vérifiée">
+                        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                        Boutique Vérifiée
+                    </span>
+
+                    <div class="notif-wrap">
+                        <button class="top-icon" title="Notifications" type="button" @onclick="ToggleNotifications" aria-haspopup="true" aria-expanded="@_notifOpen">
+                            <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+                            @if (UnreadCount > 0)
+                            {
+                                <span class="top-dot" aria-hidden="true"></span>
+                            }
+                        </button>
+
+                        @if (_notifOpen)
+                        {
+                            <div class="notif-backdrop" @onclick="CloseNotifications"></div>
+                            <div class="notif-panel" role="menu">
+                                <div class="notif-head">
+                                    <span class="notif-title">Notifications</span>
+                                    @if (UnreadCount > 0)
+                                    {
+                                        <button class="notif-mark-all" type="button" @onclick="MarkAllReadAsync">Tout marquer comme lu</button>
+                                    }
+                                </div>
+
+                                <div class="notif-list">
+                                    @if (_notifLoading)
+                                    {
+                                        <div class="notif-empty">Chargement…</div>
+                                    }
+                                    else if (_notifications.Count == 0)
+                                    {
+                                        <div class="notif-empty">Aucune notification</div>
+                                    }
+                                    else
+                                    {
+                                        @foreach (var n in _notifications)
+                                        {
+                                            <button class="notif-item @(n.IsRead ? "" : "unread")" type="button" @onclick="() => OnNotificationClickAsync(n)">
+                                                <span class="notif-item-dot" aria-hidden="true"></span>
+                                                <span class="notif-item-body">
+                                                    <span class="notif-item-title">@n.Title</span>
+                                                    @if (!string.IsNullOrWhiteSpace(n.Message))
+                                                    {
+                                                        <span class="notif-item-msg">@n.Message</span>
+                                                    }
+                                                    <span class="notif-item-time">@RelativeTime(n.CreatedAtUtc)</span>
+                                                </span>
+                                            </button>
+                                        }
+                                    }
+                                </div>
+
+                                <a class="notif-foot" href="notifications" @onclick="CloseNotifications">
+                                    Voir toutes les notifications
+                                </a>
+                            </div>
+                        }
+                    </div>
+
+                    <a class="top-icon" href="boutique" title="Paramètres de la boutique">
+                        <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>
+                    </a>
+
+                    <a class="top-avatar" href="profil" title="Mon profil" aria-label="Mon profil">@Initials</a>
+                </div>
+            </div>
+
+            <article class="content">
+                @Body
+            </article>
+        </main>
+
+        @* Navigation mobile (barre d'onglets + feuille « Plus ») — visible < 641px. *@
+        <MobileNav />
+    </div>
+}
+
+@code {
+    // Barre de recherche globale du header : sur Entrée, navigue vers la page
+    // de recherche côté client (/recherche?q=…). Aucun endpoint dédié.
+    private string _searchTerm = "";
+
+    private void OnSearchKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key != "Enter") return;
+        var q = _searchTerm?.Trim() ?? "";
+        if (q.Length == 0) return;
+        Nav.NavigateTo($"recherche?q={Uri.EscapeDataString(q)}");
+    }
+
+    private bool _notifOpen;
+    private bool _notifLoading;
+    private IReadOnlyList<SellerNotification> _notifications = Array.Empty<SellerNotification>();
+
+    // Rafraîchissement périodique de la cloche (temps quasi réel sans SignalR).
+    private System.Threading.Timer? _notifTimer;
+    private const int PollSeconds = 45;
+
+    private int UnreadCount => _notifications.Count(n => !n.IsRead);
+
+    // Toute page sous ce layout exige une session valide : sinon, redirection
+    // vers /login. Le corps n'est pas rendu tant qu'on n'est pas authentifié,
+    // ce qui évite tout appel BFF anonyme (donc tout 401 inutile).
+    protected override void OnInitialized()
+    {
+        if (!Auth.IsAuthenticated)
+            Nav.NavigateTo("login");
+    }
+
+    // Charge les notifications au montage (uniquement si authentifié) puis
+    // démarre un rafraîchissement périodique pour un suivi quasi temps réel.
+    protected override async Task OnInitializedAsync()
+    {
+        if (!Auth.IsAuthenticated)
+            return;
+
+        await LoadNotificationsAsync();
+        _notifTimer = new System.Threading.Timer(
+            _ => _ = PollNotificationsAsync(), null,
+            TimeSpan.FromSeconds(PollSeconds), TimeSpan.FromSeconds(PollSeconds));
+    }
+
+    // Recharge les notifications en arrière-plan et met à jour la cloche.
+    // On évite de rafraîchir pendant que le panneau est ouvert (ne pas perturber
+    // la lecture) ou si un chargement est déjà en cours.
+    private async Task PollNotificationsAsync()
+    {
+        if (!Auth.IsAuthenticated || _notifOpen || _notifLoading)
+            return;
+
+        await LoadNotificationsAsync();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        _notifTimer?.Dispose();
+        _notifTimer = null;
+    }
+
+    private async Task LoadNotificationsAsync()
+    {
+        _notifLoading = true;
+        try
+        {
+            _notifications = await Api.ListNotificationsAsync();
+        }
+        catch
+        {
+            _notifications = Array.Empty<SellerNotification>();
+        }
+        finally
+        {
+            _notifLoading = false;
+        }
+    }
+
+    private async Task ToggleNotifications()
+    {
+        _notifOpen = !_notifOpen;
+        if (_notifOpen)
+            await LoadNotificationsAsync();
+    }
+
+    private void CloseNotifications() => _notifOpen = false;
+
+    private async Task OnNotificationClickAsync(SellerNotification n)
+    {
+        if (!n.IsRead)
+        {
+            try { await Api.MarkNotificationReadAsync(n.Id); }
+            catch { /* on ne bloque pas l'UI si l'appel échoue */ }
+            await LoadNotificationsAsync();
+        }
+    }
+
+    private async Task MarkAllReadAsync()
+    {
+        try { await Api.MarkAllNotificationsReadAsync(); }
+        catch { /* silencieux : le rechargement reflètera l'état serveur */ }
+        await LoadNotificationsAsync();
+    }
+
+    // Temps relatif court en français (« à l'instant », « il y a 5 min », etc.).
+    private static string RelativeTime(DateTime utc)
+    {
+        var delta = DateTime.UtcNow - utc;
+        if (delta < TimeSpan.Zero) delta = TimeSpan.Zero;
+        if (delta.TotalMinutes < 1) return "à l'instant";
+        if (delta.TotalMinutes < 60) return $"il y a {(int)delta.TotalMinutes} min";
+        if (delta.TotalHours < 24) return $"il y a {(int)delta.TotalHours} h";
+        if (delta.TotalDays < 7) return $"il y a {(int)delta.TotalDays} j";
+        return utc.ToLocalTime().ToString("dd/MM/yyyy");
+    }
+
+    private string SellerName => string.IsNullOrEmpty(Auth.SellerName) ? "Ma boutique" : Auth.SellerName!;
+
+    private string Initials
+    {
+        get
+        {
+            var parts = SellerName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length == 0) return "?";
+            var first = parts[0].Length > 0 ? parts[0][0].ToString() : "";
+            var second = parts.Length > 1 && parts[1].Length > 0 ? parts[1][0].ToString() : "";
+            return (first + second).ToUpperInvariant();
+        }
+    }
+}

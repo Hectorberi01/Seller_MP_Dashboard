@@ -1,0 +1,156 @@
+/* Masqué par défaut (desktop) : la sidebar gère la navigation ≥641px. */
+.mnav, .msheet, .msheet-backdrop { display: none; }
+
+@media (max-width: 640.98px) {
+    /* --- Barre d'onglets fixée en bas (style « pro » façon Material 3) --- */
+    .mnav {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 60;
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        align-items: stretch;
+        background-color: var(--mp-surface);
+        border: 0.5px solid var(--mp-border);
+        border-bottom: none;
+        border-radius: 22px 22px 0 0;
+        box-shadow: 0 -10px 34px rgba(15, 92, 48, 0.16), 0 -2px 6px rgba(0, 0, 0, 0.04);
+        padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 0));
+    }
+    /* Poignée verte centrée en haut de la barre (accent flottant). */
+    /* (Poignée verte retirée à la demande.) */
+
+    .mnav-item {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 3px;
+        min-height: 3rem;
+        padding: 4px 1px;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        color: var(--mp-text-muted);
+        font-family: var(--mp-font-sans);
+        font-size: 10px;
+        font-weight: 500;
+        text-decoration: none;
+        -webkit-tap-highlight-color: transparent;
+        transition: color 0.2s ease;
+    }
+    .mnav-item:hover { text-decoration: none; }
+
+    /* Icône dans une pastille : fond vert clair quand l'onglet est actif. */
+    .mnav-ico {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 42px;
+        height: 24px;
+        border-radius: 999px;
+        transition: background-color 0.2s ease, transform 0.2s ease;
+    }
+    .mnav-ico { width: 54px; height: 34px; }
+    .mnav-ico svg { width: 23px; height: 23px; }
+    /* Icônes seules : on masque les libellés sous chaque onglet. */
+    .mnav-txt { display: none; }
+
+    /* Onglet actif (NavLink ajoute .active) ou feuille « Plus » ouverte. */
+    .mnav-item.active,
+    .mnav-more.is-open { color: var(--mp-primary-dark); }
+    .mnav-item.active .mnav-ico,
+    .mnav-more.is-open .mnav-ico {
+        background: var(--mp-primary-light);
+        color: var(--mp-primary);
+        transform: translateY(-1px);
+    }
+    .mnav-item.active .mnav-txt,
+    .mnav-more.is-open .mnav-txt { font-weight: 700; }
+
+    /* Retour tactile : légère pression sur la pastille. */
+    .mnav-item:active .mnav-ico { transform: scale(0.9); }
+
+    /* --- Feuille « Plus » (bottom sheet) --- */
+    .msheet-backdrop {
+        display: block;
+        position: fixed;
+        inset: 0;
+        z-index: 65;
+        background: rgba(0, 0, 0, 0.35);
+    }
+
+    .msheet {
+        display: block;
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 66;
+        background-color: var(--mp-surface);
+        border-top-left-radius: var(--mp-radius-xl);
+        border-top-right-radius: var(--mp-radius-xl);
+        box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.18);
+        padding: var(--mp-space-3) var(--mp-space-4)
+                 calc(var(--mp-space-4) + env(safe-area-inset-bottom, 0));
+        animation: msheet-up 0.18s ease-out;
+    }
+    @keyframes msheet-up {
+        from { transform: translateY(100%); }
+        to   { transform: translateY(0); }
+    }
+
+    .msheet-grip {
+        width: 36px;
+        height: 4px;
+        border-radius: 999px;
+        background-color: var(--mp-border);
+        margin: 2px auto var(--mp-space-3);
+    }
+
+    .msheet-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: var(--mp-space-2);
+    }
+
+    .msheet-link {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        padding: var(--mp-space-3) 4px;
+        border-radius: var(--mp-radius-md);
+        color: var(--mp-text);
+        font-size: 12px;
+        font-weight: 500;
+        text-align: center;
+        text-decoration: none;
+    }
+    .msheet-link:hover { background-color: var(--mp-surface-2); text-decoration: none; color: var(--mp-text); }
+    .msheet-ico { color: var(--mp-primary); display: inline-flex; }
+
+    .msheet-logout {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        width: 100%;
+        margin-top: var(--mp-space-3);
+        padding: 12px;
+        border: 1px solid var(--mp-border);
+        border-radius: var(--mp-radius-md);
+        background: transparent;
+        color: var(--mp-danger);
+        font-family: var(--mp-font-sans);
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+    }
+    .msheet-logout:hover { background-color: var(--mp-badge-rupture-bg); }
+}
